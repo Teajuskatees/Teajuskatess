@@ -3,9 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aplikasi Catatan Keuangan</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <title>Aplikasi Keuangan Cash & Saldo</title>
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -17,14 +15,13 @@
       justify-content: center;
       align-items: center;
     }
-    .container, .login-container {
+    .container {
       background: #fff;
       padding: 20px;
       border-radius: 16px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.2);
       width: 95%;
-      max-width: 800px;
-      display: none;
+      max-width: 650px;
     }
     h2 {
       text-align: center;
@@ -84,62 +81,34 @@
       font-size: 16px;
     }
     .rekap {
-      margin-top: 15px;
-      padding: 12px;
+      margin-top: 10px;
+      padding: 10px;
       background: #e9f7ff;
       border-radius: 12px;
       font-size: 14px;
+    }
+    .logout-btn {
+      margin-top: 15px;
+      background: red;
+      color: #fff;
     }
     canvas {
       margin-top: 20px;
       max-height: 300px;
     }
-    .download-btn {
-      margin-top: 15px;
-      background: #28a745;
-    }
-    .download-btn:hover {
-      background: #218838;
-    }
-    .logout-btn {
-      margin-top: 10px;
-      background: #ff4c4c;
-    }
-    .logout-btn:hover {
-      background: #cc0000;
-    }
-    .login-container {
-      display: block;
-      max-width: 400px;
-      text-align: center;
-    }
-    .hapus-btn {
-      background: #ff6b6b;
-      border: none;
-      padding: 6px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      color: #fff;
-      font-size: 12px;
-    }
-    .hapus-btn:hover {
-      background: #d63031;
-    }
   </style>
 </head>
 <body>
-  <!-- LOGIN PAGE -->
-  <div class="login-container" id="loginPage">
-    <h2>🔑 Login Keuangan</h2>
+  <div class="container" id="loginPage">
+    <h2>🔑 Login</h2>
     <form id="loginForm">
-      <input type="text" id="username" placeholder="Masukkan Username" required>
-      <input type="password" id="password" placeholder="Masukkan Password" required>
+      <input type="text" id="username" placeholder="Username" required>
+      <input type="password" id="password" placeholder="Password" required>
       <button type="submit">Login</button>
     </form>
   </div>
 
-  <!-- APP PAGE -->
-  <div class="container" id="appPage">
+  <div class="container" id="appPage" style="display:none;">
     <h2>💰 Catatan Keuangan</h2>
     <form id="form">
       <input type="text" id="deskripsi" placeholder="Deskripsi" required>
@@ -148,6 +117,10 @@
       <select id="tipe">
         <option value="pemasukan">Pemasukan</option>
         <option value="pengeluaran">Pengeluaran</option>
+      </select>
+      <select id="sumber">
+        <option value="cash">Cash</option>
+        <option value="saldo">Saldo Bank</option>
       </select>
       <button type="submit">Tambah</button>
     </form>
@@ -159,252 +132,188 @@
           <th>Deskripsi</th>
           <th>Jumlah</th>
           <th>Tipe</th>
+          <th>Sumber</th>
           <th>Aksi</th>
         </tr>
       </thead>
       <tbody id="tabel-body"></tbody>
     </table>
 
-    <div class="saldo-box" id="saldo">Saldo: Rp 0</div>
+    <div class="saldo-box" id="saldoCash">Saldo Cash: Rp 0</div>
+    <div class="saldo-box" id="saldoBank">Saldo Bank: Rp 0</div>
     <div class="rekap" id="rekap-mingguan">Rekap Mingguan: Rp 0</div>
     <div class="rekap" id="rekap-bulanan">Rekap Bulanan: Rp 0</div>
+    <div class="rekap" id="rekap-pengeluaran-bulanan">Total Pengeluaran Bulanan: Rp 0</div>
 
     <canvas id="grafik"></canvas>
-    <button class="download-btn" id="downloadPDF">📥 Unduh Rekap PDF</button>
-    <button class="logout-btn" id="logoutBtn">🚪 Logout</button>
+    <button id="downloadPDF">📄 Download PDF</button>
+    <button class="logout-btn" id="logout">Logout</button>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <script>
     const loginPage = document.getElementById("loginPage");
     const appPage = document.getElementById("appPage");
     const loginForm = document.getElementById("loginForm");
-    const logoutBtn = document.getElementById("logoutBtn");
+    const logoutBtn = document.getElementById("logout");
+
+    loginForm.addEventListener("submit", e => {
+      e.preventDefault();
+      localStorage.setItem("loggedIn", "true");
+      showApp();
+    });
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("loggedIn");
+      location.reload();
+    });
+    function showApp() {
+      loginPage.style.display = "none";
+      appPage.style.display = "block";
+    }
+    if(localStorage.getItem("loggedIn") === "true") {
+      showApp();
+    }
 
     const form = document.getElementById("form");
     const deskripsi = document.getElementById("deskripsi");
     const jumlah = document.getElementById("jumlah");
     const tanggal = document.getElementById("tanggal");
     const tipe = document.getElementById("tipe");
+    const sumber = document.getElementById("sumber");
     const tabelBody = document.getElementById("tabel-body");
-    const saldoBox = document.getElementById("saldo");
+    const saldoCash = document.getElementById("saldoCash");
+    const saldoBank = document.getElementById("saldoBank");
     const rekapMingguan = document.getElementById("rekap-mingguan");
     const rekapBulanan = document.getElementById("rekap-bulanan");
-    const downloadBtn = document.getElementById("downloadPDF");
-
-    let saldo = 0;
-    let transaksi = [];
-    let currentUser = null;
-
-    // Chart.js setup
+    const rekapPengeluaranBulanan = document.getElementById("rekap-pengeluaran-bulanan");
     const ctx = document.getElementById("grafik").getContext("2d");
-    let chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [
-          { label: 'Pemasukan', data: [], borderColor: 'green', fill: false },
-          { label: 'Pengeluaran', data: [], borderColor: 'red', fill: false }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { position: 'top' } }
-      }
-    });
 
-    // LOGIN SYSTEM
-    loginForm.addEventListener("submit", function(e) {
-      e.preventDefault();
-      const username = document.getElementById("username").value;
-      const password = document.getElementById("password").value;
+    let transaksi = JSON.parse(localStorage.getItem("transaksi")) || [];
 
-      if(password === "1234") {
-        currentUser = username;
-        localStorage.setItem("loggedInUser", currentUser);
-        loadData();
-        loginPage.style.display = "none";
-        appPage.style.display = "block";
-      } else {
-        alert("Password salah! Gunakan: 1234");
-      }
-    });
-
-    logoutBtn.addEventListener("click", () => {
-      localStorage.removeItem("loggedInUser");
-      currentUser = null;
-      appPage.style.display = "none";
-      loginPage.style.display = "block";
-    });
-
-    // TRANSAKSI FORM
     form.addEventListener("submit", function(e) {
       e.preventDefault();
       const data = {
+        id: Date.now(),
         desc: deskripsi.value,
         amount: parseInt(jumlah.value),
         type: tipe.value,
+        source: sumber.value,
         date: new Date(tanggal.value)
       };
       transaksi.push(data);
-      saveData();
-      updateTabel();
-      updateRekap();
-      updateChart();
-      deskripsi.value = "";
-      jumlah.value = "";
-      tanggal.value = "";
-      tipe.value = "pemasukan";
+      localStorage.setItem("transaksi", JSON.stringify(transaksi));
+      updateUI();
+      form.reset();
     });
 
-    function updateTabel() {
-      tabelBody.innerHTML = "";
-      saldo = 0;
-
-      transaksi.forEach((item, index) => {
-        const row = document.createElement("tr");
-        const dateCell = document.createElement("td");
-        const descCell = document.createElement("td");
-        const amountCell = document.createElement("td");
-        const typeCell = document.createElement("td");
-        const actionCell = document.createElement("td");
-
-        dateCell.textContent = item.date ? new Date(item.date).toLocaleDateString("id-ID") : "";
-        descCell.textContent = item.desc;
-        amountCell.textContent = "Rp " + item.amount.toLocaleString();
-        typeCell.textContent = item.type;
-
-        if(item.type === "pemasukan") {
-          amountCell.classList.add("income");
-          saldo += item.amount;
-        } else {
-          amountCell.classList.add("expense");
-          saldo -= item.amount;
-        }
-
-        // Tombol hapus
-        const hapusBtn = document.createElement("button");
-        hapusBtn.textContent = "Hapus";
-        hapusBtn.className = "hapus-btn";
-        hapusBtn.onclick = () => {
-          if(confirm("Yakin ingin menghapus data ini?")) {
-            transaksi.splice(index, 1);
-            saveData();
-            updateTabel();
-            updateRekap();
-            updateChart();
-          }
-        };
-
-        actionCell.appendChild(hapusBtn);
-
-        row.appendChild(dateCell);
-        row.appendChild(descCell);
-        row.appendChild(amountCell);
-        row.appendChild(typeCell);
-        row.appendChild(actionCell);
-
-        tabelBody.appendChild(row);
-      });
-
-      saldoBox.textContent = "Saldo: Rp " + saldo.toLocaleString();
+    function hapusTransaksi(id) {
+      transaksi = transaksi.filter(t => t.id !== id);
+      localStorage.setItem("transaksi", JSON.stringify(transaksi));
+      updateUI();
     }
 
-    function updateRekap() {
+    function updateUI() {
+      tabelBody.innerHTML = "";
+      let cash = 0, bank = 0;
       const now = new Date();
-      const awalMinggu = new Date(now);
-      awalMinggu.setDate(now.getDate() - now.getDay());
+      const awalMinggu = new Date(now); awalMinggu.setDate(now.getDate() - now.getDay());
       const awalBulan = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      let totalMinggu = 0;
-      let totalBulan = 0;
+      let totalMinggu = 0, totalBulan = 0, totalPengeluaranBulan = 0;
 
       transaksi.forEach(item => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${item.date ? new Date(item.date).toLocaleDateString("id-ID") : ""}</td>
+          <td>${item.desc}</td>
+          <td class="${item.type === "pemasukan" ? "income" : "expense"}">Rp ${item.amount.toLocaleString()}</td>
+          <td>${item.type}</td>
+          <td>${item.source}</td>
+          <td><button onclick="hapusTransaksi(${item.id})">Hapus</button></td>
+        `;
+        tabelBody.appendChild(row);
+
+        if(item.type === "pemasukan") {
+          if(item.source === "cash") cash += item.amount; else bank += item.amount;
+        } else {
+          if(item.source === "cash") cash -= item.amount; else bank -= item.amount;
+        }
+
         const d = new Date(item.date);
         if(d >= awalMinggu && d <= now) {
           totalMinggu += item.type === "pemasukan" ? item.amount : -item.amount;
         }
         if(d >= awalBulan && d <= now) {
           totalBulan += item.type === "pemasukan" ? item.amount : -item.amount;
+          if(item.type === "pengeluaran") totalPengeluaranBulan += item.amount;
         }
       });
 
+      saldoCash.textContent = "Saldo Cash: Rp " + cash.toLocaleString();
+      saldoBank.textContent = "Saldo Bank: Rp " + bank.toLocaleString();
       rekapMingguan.textContent = "Rekap Mingguan: Rp " + totalMinggu.toLocaleString();
       rekapBulanan.textContent = "Rekap Bulanan: Rp " + totalBulan.toLocaleString();
-    }
+      rekapPengeluaranBulanan.textContent = "Total Pengeluaran Bulanan: Rp " + totalPengeluaranBulan.toLocaleString();
 
-    function updateChart() {
-      const bulanLabels = [];
-      const pemasukan = [];
-      const pengeluaran = [];
-      const grouped = {};
-
-      transaksi.forEach(item => {
-        const d = new Date(item.date);
-        const key = d.getMonth() + 1 + "/" + d.getFullYear();
-        if(!grouped[key]) grouped[key] = { pemasukan: 0, pengeluaran: 0 };
-        if(item.type === "pemasukan") grouped[key].pemasukan += item.amount;
-        else grouped[key].pengeluaran += item.amount;
+      if(window.grafikChart) window.grafikChart.destroy();
+      window.grafikChart = new Chart(ctx, {
+        type: "pie",
+        data: {
+          labels: ["Cash", "Bank"],
+          datasets: [{
+            data: [cash, bank],
+            backgroundColor: ["#4caf50", "#2196f3"]
+          }]
+        }
       });
-
-      for(const key in grouped) {
-        bulanLabels.push(key);
-        pemasukan.push(grouped[key].pemasukan);
-        pengeluaran.push(grouped[key].pengeluaran);
-      }
-
-      chart.data.labels = bulanLabels;
-      chart.data.datasets[0].data = pemasukan;
-      chart.data.datasets[1].data = pengeluaran;
-      chart.update();
     }
 
-    // SAVE & LOAD LOCALSTORAGE
-    function saveData() {
-      if(currentUser) {
-        localStorage.setItem("data_" + currentUser, JSON.stringify(transaksi));
-      }
-    }
+    updateUI();
 
-    function loadData() {
-      if(currentUser) {
-        const saved = localStorage.getItem("data_" + currentUser);
-        transaksi = saved ? JSON.parse(saved) : [];
-        updateTabel();
-        updateRekap();
-        updateChart();
-      }
-    }
-
-    // AUTO LOGIN CHECK
-    window.onload = () => {
-      const loggedUser = localStorage.getItem("loggedInUser");
-      if(loggedUser) {
-        currentUser = loggedUser;
-        loadData();
-        loginPage.style.display = "none";
-        appPage.style.display = "block";
-      }
-    };
-
-    // DOWNLOAD PDF
-    downloadBtn.addEventListener("click", () => {
+    document.getElementById("downloadPDF").addEventListener("click", () => {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-      doc.setFontSize(16);
-      doc.text("📊 Rekap Keuangan", 14, 20);
-      doc.setFontSize(12);
-      doc.text(saldoBox.textContent, 14, 35);
-      doc.text(rekapMingguan.textContent, 14, 45);
-      doc.text(rekapBulanan.textContent, 14, 55);
-      let y = 70;
-      doc.text("Detail Transaksi:", 14, y);
-      y += 10;
-      transaksi.forEach((t, i) => {
-        doc.text(`${i+1}. ${new Date(t.date).toLocaleDateString("id-ID")} - ${t.desc} - Rp ${t.amount.toLocaleString()} (${t.type})`, 14, y);
-        y += 8;
-        if (y > 270) { doc.addPage(); y = 20; }
+      doc.setFontSize(14);
+      doc.text("Laporan Keuangan", 14, 20);
+
+      const pemasukan = transaksi.filter(t => t.type === "pemasukan").map(t => [
+        new Date(t.date).toLocaleDateString("id-ID"),
+        t.desc,
+        "Rp " + t.amount.toLocaleString(),
+        t.source
+      ]);
+      const pengeluaran = transaksi.filter(t => t.type === "pengeluaran").map(t => [
+        new Date(t.date).toLocaleDateString("id-ID"),
+        t.desc,
+        "Rp " + t.amount.toLocaleString(),
+        t.source
+      ]);
+
+      doc.autoTable({
+        head: [["Tanggal", "Deskripsi", "Jumlah", "Sumber"]],
+        body: pemasukan,
+        startY: 30,
+        theme: "grid",
+        headStyles: { fillColor: [76, 175, 80] },
+        didDrawPage: (data) => {
+          doc.text("Tabel Pemasukan", 14, 28);
+        }
       });
-      doc.save("Rekap_Keuangan.pdf");
+
+      let finalY = doc.lastAutoTable.finalY + 10;
+      doc.autoTable({
+        head: [["Tanggal", "Deskripsi", "Jumlah", "Sumber"]],
+        body: pengeluaran,
+        startY: finalY,
+        theme: "grid",
+        headStyles: { fillColor: [244, 67, 54] },
+        didDrawPage: (data) => {
+          doc.text("Tabel Pengeluaran", 14, finalY - 2);
+        }
+      });
+
+      doc.save("laporan_keuangan.pdf");
     });
   </script>
 </body>
