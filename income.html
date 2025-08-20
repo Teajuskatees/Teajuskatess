@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aplikasi Catatan Keuangan</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #4facfe, #00f2fe);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .container, .login-container {
+      background: #fff;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      width: 95%;
+      max-width: 800px;
+      display: none;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    input, select, button {
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      font-size: 14px;
+    }
+    button {
+      background: #4facfe;
+      border: none;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #00c6ff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background: #f4f4f4;
+    }
+    .income {
+      color: green;
+      font-weight: bold;
+    }
+    .expense {
+      color: red;
+      font-weight: bold;
+    }
+    .saldo-box {
+      margin-top: 15px;
+      padding: 12px;
+      text-align: center;
+      background: #f4f4f4;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .rekap {
+      margin-top: 15px;
+      padding: 12px;
+      background: #e9f7ff;
+      border-radius: 12px;
+      font-size: 14px;
+    }
+    canvas {
+      margin-top: 20px;
+      max-height: 300px;
+    }
+    .download-btn {
+      margin-top: 15px;
+      background: #28a745;
+    }
+    .download-btn:hover {
+      background: #218838;
+    }
+    .logout-btn {
+      margin-top: 10px;
+      background: #ff4c4c;
+    }
+    .logout-btn:hover {
+      background: #cc0000;
+    }
+    .login-container {
+      display: block;
+      max-width: 400px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- LOGIN PAGE -->
+  <div class="login-container" id="loginPage">
+    <h2>🔑 Login Keuangan</h2>
+    <form id="loginForm">
+      <input type="text" id="username" placeholder="Masukkan Username" required>
+      <input type="password" id="password" placeholder="Masukkan Password" required>
+      <button type="submit">Login</button>
+    </form>
+  </div>
+
+  <!-- APP PAGE -->
+  <div class="container" id="appPage">
+    <h2>💰 Catatan Keuangan</h2>
+    <form id="form">
+      <input type="text" id="deskripsi" placeholder="Deskripsi" required>
+      <input type="number" id="jumlah" placeholder="Jumlah" required>
+      <input type="date" id="tanggal" required>
+      <select id="tipe">
+        <option value="pemasukan">Pemasukan</option>
+        <option value="pengeluaran">Pengeluaran</option>
+      </select>
+      <button type="submit">Tambah</button>
+    </form>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Deskripsi</th>
+          <th>Jumlah</th>
+          <th>Tipe</th>
+        </tr>
+      </thead>
+      <tbody id="tabel-body"></tbody>
+    </table>
+
+    <div class="saldo-box" id="saldo">Saldo: Rp 0</div>
+    <div class="rekap" id="rekap-mingguan">Rekap Mingguan: Rp 0</div>
+    <div class="rekap" id="rekap-bulanan">Rekap Bulanan: Rp 0</div>
+
+    <canvas id="grafik"></canvas>
+    <button class="download-btn" id="downloadPDF">📥 Unduh Rekap PDF</button>
+    <button class="logout-btn" id="logoutBtn">🚪 Logout</button>
+  </div>
+
+  <script>
+    const loginPage = document.getElementById("loginPage");
+    const appPage = document.getElementById("appPage");
+    const loginForm = document.getElementById("loginForm");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    const form = document.getElementById("form");
+    const deskripsi = document.getElementById("deskripsi");
+    const jumlah = document.getElementById("jumlah");
+    const tanggal = document.getElementById("tanggal");
+    const tipe = document.getElementById("tipe");
+    const tabelBody = document.getElementById("tabel-body");
+    const saldoBox = document.getElementById("saldo");
+    const rekapMingguan = document.getElementById("rekap-mingguan");
+    const rekapBulanan = document.getElementById("rekap-bulanan");
+    const downloadBtn = document.getElementById("downloadPDF");
+
+    let saldo = 0;
+    let transaksi = [];
+    let currentUser = null;
+
+    // Chart.js setup
+    const ctx = document.getElementById("grafik").getContext("2d");
+    let chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'Pemasukan', data: [], borderColor: 'green', fill: false },
+          { label: 'Pengeluaran', data: [], borderColor: 'red', fill: false }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'top' }
+        }
+      }
+    });
+
+    // LOGIN SYSTEM
+    loginForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      // Password simple (tidak aman, demo saja)
+      if(password === "1234") {
+        currentUser = username;
+        localStorage.setItem("loggedInUser", currentUser);
+        loadData();
+        loginPage.style.display = "none";
+        appPage.style.display = "block";
+      } else {
+        alert("Password salah! Gunakan: 1234");
+      }
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("loggedInUser");
+      currentUser = null;
+      appPage.style.display = "none";
+      loginPage.style.display = "block";
+    });
+
+    // TRANSAKSI FORM
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const data = {
+        desc: deskripsi.value,
+        amount: parseInt(jumlah.value),
+        type: tipe.value,
+        date: new Date(tanggal.value)
+      };
+      transaksi.push(data);
+      saveData();
+      updateTabel();
+      updateRekap();
+      updateChart();
+      deskripsi.value = "";
+      jumlah.value = "";
+      tanggal.value = "";
+      tipe.value = "pemasukan";
+    });
+
+    function updateTabel() {
+      tabelBody.innerHTML = "";
+      saldo = 0;
+
+      transaksi.forEach(item => {
+        const row = document.createElement("tr");
+        const dateCell = document.createElement("td");
+        const descCell = document.createElement("td");
+        const amountCell = document.createElement("td");
+        const typeCell = document.createElement("td");
+
+        dateCell.textContent = item.date ? new Date(item.date).toLocaleDateString("id-ID") : "";
+        descCell.textContent = item.desc;
+        amountCell.textContent = "Rp " + item.amount.toLocaleString();
+        typeCell.textContent = item.type;
+
+        if(item.type === "pemasukan") {
+          amountCell.classList.add("income");
+          saldo += item.amount;
+        } else {
+          amountCell.classList.add("expense");
+          saldo -= item.amount;
+        }
+
+        row.appendChild(dateCell);
+        row.appendChild(descCell);
+        row.appendChild(amountCell);
+        row.appendChild(typeCell);
+
+        tabelBody.appendChild(row);
+      });
+
+      saldoBox.textContent = "Saldo: Rp " + saldo.toLocaleString();
+    }
+
+    function updateRekap() {
+      const now = new Date();
+      const awalMinggu = new Date(now);
+      awalMinggu.setDate(now.getDate() - now.getDay());
+      const awalBulan = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      let totalMinggu = 0;
+      let totalBulan = 0;
+
+      transaksi.forEach(item => {
+        const d = new Date(item.date);
+        if(d >= awalMinggu && d <= now) {
+          totalMinggu += item.type === "pemasukan" ? item.amount : -item.amount;
+        }
+        if(d >= awalBulan && d <= now) {
+          totalBulan += item.type === "pemasukan" ? item.amount : -item.amount;
+        }
+      });
+
+      rekapMingguan.textContent = "Rekap Mingguan: Rp " + totalMinggu.toLocaleString();
+      rekapBulanan.textContent = "Rekap Bulanan: Rp " + totalBulan.toLocaleString();
+    }
+
+    function updateChart() {
+      const bulanLabels = [];
+      const pemasukan = [];
+      const pengeluaran = [];
+      const grouped = {};
+
+      transaksi.forEach(item => {
+        const d = new Date(item.date);
+        const key = d.getMonth() + 1 + "/" + d.getFullYear();
+        if(!grouped[key]) grouped[key] = { pemasukan: 0, pengeluaran: 0 };
+        if(item.type === "pemasukan") grouped[key].pemasukan += item.amount;
+        else grouped[key].pengeluaran += item.amount;
+      });
+
+      for(const key in grouped) {
+        bulanLabels.push(key);
+        pemasukan.push(grouped[key].pemasukan);
+        pengeluaran.push(grouped[key].pengeluaran);
+      }
+
+      chart.data.labels = bulanLabels;
+      chart.data.datasets[0].data = pemasukan;
+      chart.data.datasets[1].data = pengeluaran;
+      chart.update();
+    }
+
+    // SAVE & LOAD LOCALSTORAGE
+    function saveData() {
+      if(currentUser) {
+        localStorage.setItem("data_" + currentUser, JSON.stringify(transaksi));
+      }
+    }
+
+    function loadData() {
+      if(currentUser) {
+        const saved = localStorage.getItem("data_" + currentUser);
+        transaksi = saved ? JSON.parse(saved) : [];
+        updateTabel();
+        updateRekap();
+        updateChart();
+      }
+    }
+
+    // AUTO LOGIN CHECK
+    window.onload = () => {
+      const loggedUser = localStorage.getItem("loggedInUser");
+      if(loggedUser) {
+        currentUser = loggedUser;
+        loadData();
+        loginPage.style.display = "none";
+        appPage.style.display = "block";
+      }
+    };
+
+    // DOWNLOAD PDF
+    downloadBtn.addEventListener("click", () => {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text("📊 Rekap Keuangan", 14, 20);
+      doc.setFontSize(12);
+      doc.text(saldoBox.textContent, 14, 35);
+      doc.text(rekapMingguan.textContent, 14, 45);
+      doc.text(rekapBulanan.textContent, 14, 55);
+      let y = 70;
+      doc.text("Detail Transaksi:", 14, y);
+      y += 10;
+      transaksi.forEach((t, i) => {
+        doc.text(`${i+1}. ${new Date(t.date).toLocaleDateString("id-ID")} - ${t.desc} - Rp ${t.amount.toLocaleString()} (${t.type})`, 14, y);
+        y += 8;
+        if (y > 270) { doc.addPage(); y = 20; }
+      });
+      doc.save("Rekap_Keuangan.pdf");
+    });
+  </script>
+</body>
+</html>
