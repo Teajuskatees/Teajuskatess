@@ -4,9 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aplikasi Catatan Keuangan</title>
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQC..."/> 
-  <!-- contoh favicon (base64 PNG), bisa ganti dengan file sendiri -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -18,13 +17,14 @@
       justify-content: center;
       align-items: center;
     }
-    .container {
+    .container, .login-container {
       background: #fff;
       padding: 20px;
       border-radius: 16px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.2);
       width: 95%;
-      max-width: 700px;
+      max-width: 800px;
+      display: none;
     }
     h2 {
       text-align: center;
@@ -90,22 +90,44 @@
       border-radius: 12px;
       font-size: 14px;
     }
-    .hapus-btn {
-      background: red;
-      color: white;
-      border: none;
-      padding: 5px 8px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 12px;
+    canvas {
+      margin-top: 20px;
+      max-height: 300px;
     }
-    .hapus-btn:hover {
-      background: darkred;
+    .download-btn {
+      margin-top: 15px;
+      background: #28a745;
+    }
+    .download-btn:hover {
+      background: #218838;
+    }
+    .logout-btn {
+      margin-top: 10px;
+      background: #ff4c4c;
+    }
+    .logout-btn:hover {
+      background: #cc0000;
+    }
+    .login-container {
+      display: block;
+      max-width: 400px;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <!-- LOGIN PAGE -->
+  <div class="login-container" id="loginPage">
+    <h2>🔑 Login Keuangan</h2>
+    <form id="loginForm">
+      <input type="text" id="username" placeholder="Masukkan Username" required>
+      <input type="password" id="password" placeholder="Masukkan Password" required>
+      <button type="submit">Login</button>
+    </form>
+  </div>
+
+  <!-- APP PAGE -->
+  <div class="container" id="appPage">
     <h2>💰 Catatan Keuangan</h2>
     <form id="form">
       <input type="text" id="deskripsi" placeholder="Deskripsi" required>
@@ -125,7 +147,6 @@
           <th>Deskripsi</th>
           <th>Jumlah</th>
           <th>Tipe</th>
-          <th>Aksi</th>
         </tr>
       </thead>
       <tbody id="tabel-body"></tbody>
@@ -134,9 +155,18 @@
     <div class="saldo-box" id="saldo">Saldo: Rp 0</div>
     <div class="rekap" id="rekap-mingguan">Rekap Mingguan: Rp 0</div>
     <div class="rekap" id="rekap-bulanan">Rekap Bulanan: Rp 0</div>
+
+    <canvas id="grafik"></canvas>
+    <button class="download-btn" id="downloadPDF">📥 Unduh Rekap PDF</button>
+    <button class="logout-btn" id="logoutBtn">🚪 Logout</button>
   </div>
 
   <script>
+    const loginPage = document.getElementById("loginPage");
+    const appPage = document.getElementById("appPage");
+    const loginForm = document.getElementById("loginForm");
+    const logoutBtn = document.getElementById("logoutBtn");
+
     const form = document.getElementById("form");
     const deskripsi = document.getElementById("deskripsi");
     const jumlah = document.getElementById("jumlah");
@@ -146,42 +176,75 @@
     const saldoBox = document.getElementById("saldo");
     const rekapMingguan = document.getElementById("rekap-mingguan");
     const rekapBulanan = document.getElementById("rekap-bulanan");
+    const downloadBtn = document.getElementById("downloadPDF");
 
     let saldo = 0;
-    let transaksi = JSON.parse(localStorage.getItem("transaksi")) || [];
+    let transaksi = [];
+    let currentUser = null;
 
+    // Chart.js setup
+    const ctx = document.getElementById("grafik").getContext("2d");
+    let chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'Pemasukan', data: [], borderColor: 'green', fill: false },
+          { label: 'Pengeluaran', data: [], borderColor: 'red', fill: false }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'top' }
+        }
+      }
+    });
+
+    // LOGIN SYSTEM
+    loginForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      // Password simple (tidak aman, demo saja)
+      if(password === "1234") {
+        currentUser = username;
+        localStorage.setItem("loggedInUser", currentUser);
+        loadData();
+        loginPage.style.display = "none";
+        appPage.style.display = "block";
+      } else {
+        alert("Password salah! Gunakan: 1234");
+      }
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("loggedInUser");
+      currentUser = null;
+      appPage.style.display = "none";
+      loginPage.style.display = "block";
+    });
+
+    // TRANSAKSI FORM
     form.addEventListener("submit", function(e) {
       e.preventDefault();
-
       const data = {
-        id: Date.now(),
         desc: deskripsi.value,
         amount: parseInt(jumlah.value),
         type: tipe.value,
         date: new Date(tanggal.value)
       };
-
       transaksi.push(data);
       saveData();
       updateTabel();
       updateRekap();
-
+      updateChart();
       deskripsi.value = "";
       jumlah.value = "";
       tanggal.value = "";
       tipe.value = "pemasukan";
     });
-
-    function saveData() {
-      localStorage.setItem("transaksi", JSON.stringify(transaksi));
-    }
-
-    function hapusTransaksi(id) {
-      transaksi = transaksi.filter(item => item.id !== id);
-      saveData();
-      updateTabel();
-      updateRekap();
-    }
 
     function updateTabel() {
       tabelBody.innerHTML = "";
@@ -189,14 +252,12 @@
 
       transaksi.forEach(item => {
         const row = document.createElement("tr");
-
         const dateCell = document.createElement("td");
         const descCell = document.createElement("td");
         const amountCell = document.createElement("td");
         const typeCell = document.createElement("td");
-        const aksiCell = document.createElement("td");
 
-        dateCell.textContent = new Date(item.date).toLocaleDateString("id-ID");
+        dateCell.textContent = item.date ? new Date(item.date).toLocaleDateString("id-ID") : "";
         descCell.textContent = item.desc;
         amountCell.textContent = "Rp " + item.amount.toLocaleString();
         typeCell.textContent = item.type;
@@ -209,18 +270,10 @@
           saldo -= item.amount;
         }
 
-        const hapusBtn = document.createElement("button");
-        hapusBtn.textContent = "Hapus";
-        hapusBtn.className = "hapus-btn";
-        hapusBtn.onclick = () => hapusTransaksi(item.id);
-
-        aksiCell.appendChild(hapusBtn);
-
         row.appendChild(dateCell);
         row.appendChild(descCell);
         row.appendChild(amountCell);
         row.appendChild(typeCell);
-        row.appendChild(aksiCell);
 
         tabelBody.appendChild(row);
       });
@@ -238,11 +291,11 @@
       let totalBulan = 0;
 
       transaksi.forEach(item => {
-        const itemDate = new Date(item.date);
-        if(itemDate >= awalMinggu && itemDate <= now) {
+        const d = new Date(item.date);
+        if(d >= awalMinggu && d <= now) {
           totalMinggu += item.type === "pemasukan" ? item.amount : -item.amount;
         }
-        if(itemDate >= awalBulan && itemDate <= now) {
+        if(d >= awalBulan && d <= now) {
           totalBulan += item.type === "pemasukan" ? item.amount : -item.amount;
         }
       });
@@ -251,9 +304,80 @@
       rekapBulanan.textContent = "Rekap Bulanan: Rp " + totalBulan.toLocaleString();
     }
 
-    // Load awal
-    updateTabel();
-    updateRekap();
+    function updateChart() {
+      const bulanLabels = [];
+      const pemasukan = [];
+      const pengeluaran = [];
+      const grouped = {};
+
+      transaksi.forEach(item => {
+        const d = new Date(item.date);
+        const key = d.getMonth() + 1 + "/" + d.getFullYear();
+        if(!grouped[key]) grouped[key] = { pemasukan: 0, pengeluaran: 0 };
+        if(item.type === "pemasukan") grouped[key].pemasukan += item.amount;
+        else grouped[key].pengeluaran += item.amount;
+      });
+
+      for(const key in grouped) {
+        bulanLabels.push(key);
+        pemasukan.push(grouped[key].pemasukan);
+        pengeluaran.push(grouped[key].pengeluaran);
+      }
+
+      chart.data.labels = bulanLabels;
+      chart.data.datasets[0].data = pemasukan;
+      chart.data.datasets[1].data = pengeluaran;
+      chart.update();
+    }
+
+    // SAVE & LOAD LOCALSTORAGE
+    function saveData() {
+      if(currentUser) {
+        localStorage.setItem("data_" + currentUser, JSON.stringify(transaksi));
+      }
+    }
+
+    function loadData() {
+      if(currentUser) {
+        const saved = localStorage.getItem("data_" + currentUser);
+        transaksi = saved ? JSON.parse(saved) : [];
+        updateTabel();
+        updateRekap();
+        updateChart();
+      }
+    }
+
+    // AUTO LOGIN CHECK
+    window.onload = () => {
+      const loggedUser = localStorage.getItem("loggedInUser");
+      if(loggedUser) {
+        currentUser = loggedUser;
+        loadData();
+        loginPage.style.display = "none";
+        appPage.style.display = "block";
+      }
+    };
+
+    // DOWNLOAD PDF
+    downloadBtn.addEventListener("click", () => {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text("📊 Rekap Keuangan", 14, 20);
+      doc.setFontSize(12);
+      doc.text(saldoBox.textContent, 14, 35);
+      doc.text(rekapMingguan.textContent, 14, 45);
+      doc.text(rekapBulanan.textContent, 14, 55);
+      let y = 70;
+      doc.text("Detail Transaksi:", 14, y);
+      y += 10;
+      transaksi.forEach((t, i) => {
+        doc.text(`${i+1}. ${new Date(t.date).toLocaleDateString("id-ID")} - ${t.desc} - Rp ${t.amount.toLocaleString()} (${t.type})`, 14, y);
+        y += 8;
+        if (y > 270) { doc.addPage(); y = 20; }
+      });
+      doc.save("Rekap_Keuangan.pdf");
+    });
   </script>
 </body>
 </html>
