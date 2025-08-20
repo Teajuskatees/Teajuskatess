@@ -113,6 +113,18 @@
       max-width: 400px;
       text-align: center;
     }
+    .hapus-btn {
+      background: #ff6b6b;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #fff;
+      font-size: 12px;
+    }
+    .hapus-btn:hover {
+      background: #d63031;
+    }
   </style>
 </head>
 <body>
@@ -147,6 +159,7 @@
           <th>Deskripsi</th>
           <th>Jumlah</th>
           <th>Tipe</th>
+          <th>Aksi</th>
         </tr>
       </thead>
       <tbody id="tabel-body"></tbody>
@@ -195,9 +208,7 @@
       },
       options: {
         responsive: true,
-        plugins: {
-          legend: { position: 'top' }
-        }
+        plugins: { legend: { position: 'top' } }
       }
     });
 
@@ -207,7 +218,6 @@
       const username = document.getElementById("username").value;
       const password = document.getElementById("password").value;
 
-      // Password simple (tidak aman, demo saja)
       if(password === "1234") {
         currentUser = username;
         localStorage.setItem("loggedInUser", currentUser);
@@ -250,12 +260,13 @@
       tabelBody.innerHTML = "";
       saldo = 0;
 
-      transaksi.forEach(item => {
+      transaksi.forEach((item, index) => {
         const row = document.createElement("tr");
         const dateCell = document.createElement("td");
         const descCell = document.createElement("td");
         const amountCell = document.createElement("td");
         const typeCell = document.createElement("td");
+        const actionCell = document.createElement("td");
 
         dateCell.textContent = item.date ? new Date(item.date).toLocaleDateString("id-ID") : "";
         descCell.textContent = item.desc;
@@ -270,10 +281,27 @@
           saldo -= item.amount;
         }
 
+        // Tombol hapus
+        const hapusBtn = document.createElement("button");
+        hapusBtn.textContent = "Hapus";
+        hapusBtn.className = "hapus-btn";
+        hapusBtn.onclick = () => {
+          if(confirm("Yakin ingin menghapus data ini?")) {
+            transaksi.splice(index, 1);
+            saveData();
+            updateTabel();
+            updateRekap();
+            updateChart();
+          }
+        };
+
+        actionCell.appendChild(hapusBtn);
+
         row.appendChild(dateCell);
         row.appendChild(descCell);
         row.appendChild(amountCell);
         row.appendChild(typeCell);
+        row.appendChild(actionCell);
 
         tabelBody.appendChild(row);
       });
