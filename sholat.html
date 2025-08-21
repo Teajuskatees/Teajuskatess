@@ -1,0 +1,350 @@
+<!DOCTYPE html><html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Jadwal Sholat – Lokasi Otomatis</title>
+  <meta name="theme-color" content="#0ea5e9" />
+  <style>
+    :root{
+      --bg: #0b1220;
+      --card: #111827;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #22d3ee;
+      --primary: #38bdf8;
+      --danger: #fb7185;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --shadow: 0 10px 30px rgba(0,0,0,.25);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      color: var(--text);
+      background: linear-gradient(160deg, #0b1220 0%, #0a1a2f 40%, #062236 100%);
+    }
+    .container{max-width:640px;margin:0 auto;padding:16px 16px 100px}
+    header{
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: blur(8px);
+      background: linear-gradient(180deg, rgba(6,22,54,.85), rgba(6,22,54,.6));
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .row{display:flex;gap:12px;align-items:center;justify-content:space-between}
+    .title{font-weight:700;font-size:18px;letter-spacing:.3px}
+    .badge{font-size:12px;color:#061a30;background:var(--accent);padding:6px 10px;border-radius:999px;font-weight:700}.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+.clock{font-variant-numeric: tabular-nums; font-size:44px; line-height:1; font-weight:800; letter-spacing:.5px}
+.sub{color:var(--muted);font-size:13px}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pill{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+.name{font-weight:700}
+.time{font-variant-numeric: tabular-nums; font-weight:800}
+
+.next{display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:16px;background:linear-gradient(90deg, rgba(56,189,248,.25), rgba(34,211,238,.2));border:1px solid rgba(56,189,248,.35)}
+.next strong{font-size:16px}
+
+.toolbar{position:fixed;left:0;right:0;bottom:0;padding:12px;display:flex;gap:10px;justify-content:center;background:linear-gradient(180deg, transparent, rgba(6,22,54,.9) 40%)}
+.btn{appearance:none;border:none;cursor:pointer;border-radius:14px;padding:12px 14px;font-weight:700;color:#061a30;background:var(--primary);box-shadow:var(--shadow)}
+.btn.secondary{background:rgba(255,255,255,.08);color:var(--text);border:1px solid rgba(255,255,255,.1)}
+
+.table{width:100%;border-collapse:separate;border-spacing:0 10px}
+.table tr{background:rgba(255,255,255,.04)}
+.table td{padding:12px 14px}
+.table tr td:first-child{border-radius:12px 0 0 12px}
+.table tr td:last-child{border-radius:0 12px 12px 0;text-align:right;font-weight:800}
+
+.muted{color:var(--muted)}
+.ok{color:var(--success)}
+.warn{color:var(--warning)}
+
+/* Location modal */
+.modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.7);z-index:50;padding:20px}
+.modal.open{display:flex}
+.modal .box{max-width:520px;width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:22px;padding:20px;box-shadow:var(--shadow)}
+
+.chip{display:inline-flex;gap:8px;align-items:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:8px 10px;border-radius:999px;font-size:12px;color:var(--muted)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
+  </style>
+</head>
+<body>
+  <header class="card" style="border-radius:0">
+    <div class="container" style="padding:10px 16px">
+      <div class="row">
+        <div>
+          <div class="title">Jadwal Sholat</div>
+          <div id="today" class="sub">—</div>
+        </div>
+        <div class="badge" id="tzBadge">Zona</div>
+      </div>
+    </div>
+  </header>  <main class="container">
+    <section class="card" aria-labelledby="jam-sekarang">
+      <div class="row" style="align-items:flex-end">
+        <div>
+          <div id="clock" class="clock">00:00:00</div>
+          <div id="location" class="sub">Menentukan lokasi…</div>
+        </div>
+        <div class="chips">
+          <span class="chip" id="notifStatus">🔔 Notifikasi: nonaktif</span>
+          <span class="chip" id="geoStatus">📍 Lokasi: belum diizinkan</span>
+        </div>
+      </div>
+      <div class="next" style="margin-top:12px">
+        <div style="font-size:28px">🕌</div>
+        <div>
+          <div class="sub">Sholat berikutnya</div>
+          <strong id="nextName">—</strong>
+          <div class="sub" id="countdown">Menunggu jadwal…</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div class="sub">Adzan</div>
+          <div class="time" id="nextTime">--:--</div>
+        </div>
+      </div>
+    </section><section class="card" style="margin-top:12px">
+  <div class="row" style="margin-bottom:8px">
+    <div class="title" style="font-size:16px">Jadwal Hari Ini</div>
+    <button class="btn secondary" id="refreshBtn">↻ Segarkan</button>
+  </div>
+  <table class="table" aria-label="Tabel Jadwal Sholat">
+    <tbody id="tableBody">
+      <!-- rows injected here -->
+    </tbody>
+  </table>
+  <div class="sub" id="calcMeta">—</div>
+</section>
+
+  </main>  <div class="toolbar">
+    <button class="btn" id="allowLocationBtn">📍 Izinkan Lokasi</button>
+    <button class="btn secondary" id="enableNotifBtn">🔔 Aktifkan Notifikasi</button>
+  </div>  <!-- Location consent modal (custom explainer before native prompt) -->  <div id="locModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="locTitle">
+    <div class="box">
+      <div class="row" style="justify-content:flex-start;gap:10px;margin-bottom:6px">
+        <div class="badge">Privasi</div>
+      </div>
+      <h2 id="locTitle" style="margin:0 0 6px">Izinkan akses lokasi?</h2>
+      <p class="sub" style="margin-top:0">Kami menggunakan koordinat Anda hanya untuk menghitung jadwal sholat hari ini. Data tidak disimpan di server kami.</p>
+      <div class="row" style="gap:10px;margin-top:12px">
+        <button class="btn" id="grantLoc">Izinkan Lokasi</button>
+        <button class="btn secondary" id="denyLoc">Nanti Saja</button>
+      </div>
+    </div>
+  </div>  <script>
+    const els = {
+      today: document.getElementById('today'),
+      clock: document.getElementById('clock'),
+      location: document.getElementById('location'),
+      tzBadge: document.getElementById('tzBadge'),
+      tableBody: document.getElementById('tableBody'),
+      calcMeta: document.getElementById('calcMeta'),
+      nextName: document.getElementById('nextName'),
+      nextTime: document.getElementById('nextTime'),
+      countdown: document.getElementById('countdown'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      allowLocationBtn: document.getElementById('allowLocationBtn'),
+      enableNotifBtn: document.getElementById('enableNotifBtn'),
+      notifStatus: document.getElementById('notifStatus'),
+      geoStatus: document.getElementById('geoStatus'),
+      locModal: document.getElementById('locModal'),
+      grantLoc: document.getElementById('grantLoc'),
+      denyLoc: document.getElementById('denyLoc'),
+    };
+
+    const PRAYERS_ORDER = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
+    let state = {
+      coords: null,
+      timings: null,
+      meta: null,
+      timers: [],
+    };
+
+    // Format helpers
+    const fmtDateLong = (d) => d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const two = (n) => String(n).padStart(2,'0');
+
+    function updateClock(){
+      const now = new Date();
+      els.clock.textContent = `${two(now.getHours())}:${two(now.getMinutes())}:${two(now.getSeconds())}`;
+      els.today.textContent = fmtDateLong(now);
+      updateCountdown();
+    }
+
+    // Location modal controls
+    function openLocModal(){ els.locModal.classList.add('open'); }
+    function closeLocModal(){ els.locModal.classList.remove('open'); }
+
+    // Geolocation flow
+    async function requestLocation(){
+      if(!('geolocation' in navigator)){
+        els.location.textContent = 'Perangkat tidak mendukung Geolocation';
+        els.geoStatus.textContent = '📍 Lokasi: tidak didukung';
+        return;
+      }
+      closeLocModal();
+      els.location.textContent = 'Meminta izin lokasi…';
+      navigator.geolocation.getCurrentPosition(onGeoSuccess, onGeoError, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+    }
+    function onGeoSuccess(pos){
+      const { latitude, longitude } = pos.coords;
+      state.coords = { lat: latitude, lon: longitude };
+      els.geoStatus.textContent = '📍 Lokasi: diizinkan';
+      els.location.textContent = `Lokasi: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+      fetchTimings();
+    }
+    function onGeoError(err){
+      console.warn(err);
+      els.location.textContent = 'Gagal mendapatkan lokasi. Klik \"Izinkan Lokasi\" untuk mencoba lagi.';
+      els.geoStatus.textContent = '📍 Lokasi: ditolak';
+      // fallback: try IP-based API? (skipped for privacy). User can retry.
+    }
+
+    // Fetch prayer times from Aladhan API
+    async function fetchTimings(){
+      if(!state.coords) return;
+      const { lat, lon } = state.coords;
+      const url = `https://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lon}&method=3&tune=0,0,0,0,0,0,0,0,0`;
+      els.calcMeta.textContent = 'Mengambil jadwal…';
+      try{
+        const res = await fetch(url);
+        const json = await res.json();
+        if(json.code !== 200) throw new Error('API error');
+        state.timings = json.data.timings;
+        state.meta = json.data.meta;
+        renderTimetable();
+        scheduleNotifications();
+      }catch(e){
+        console.error(e);
+        els.calcMeta.textContent = 'Gagal mengambil jadwal. Coba segarkan.';
+      }
+    }
+
+    function renderTimetable(){
+      if(!state.timings) return;
+      const t = state.timings;
+      const rows = [];
+      const labels = {Fajr:'Subuh', Dhuhr:'Dzuhur', Asr:'Ashar', Maghrib:'Maghrib', Isha:'Isya'};
+      PRAYERS_ORDER.forEach(key=>{
+        rows.push(`<tr><td class="name">${labels[key]}</td><td class="time">${t[key]}</td></tr>`);
+      });
+      els.tableBody.innerHTML = rows.join('');
+      els.tzBadge.textContent = state.meta?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      els.calcMeta.textContent = `Metode: Karachi (method=3) • Perhitungan oleh AlAdhan`;
+      updateNextPrayer();
+    }
+
+    function parseTodayTime(hhmm){
+      const [h,m] = hhmm.split(':').map(Number);
+      const now = new Date();
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+      return d;
+    }
+
+    function updateNextPrayer(){
+      if(!state.timings) return;
+      const now = new Date();
+      let nextKey = null; let nextDate = null;
+      for(const key of PRAYERS_ORDER){
+        const dt = parseTodayTime(state.timings[key]);
+        if(dt > now){ nextKey = key; nextDate = dt; break; }
+      }
+      // If none left today, take tomorrow Fajr (simple approach: add 1 day)
+      if(!nextKey){
+        nextKey = 'Fajr';
+        nextDate = parseTodayTime(state.timings['Fajr']);
+        nextDate.setDate(nextDate.getDate()+1);
+      }
+      const labels = {Fajr:'Subuh', Dhuhr:'Dzuhur', Asr:'Ashar', Maghrib:'Maghrib', Isha:'Isya'};
+      els.nextName.textContent = labels[nextKey];
+      els.nextTime.textContent = `${two(nextDate.getHours())}:${two(nextDate.getMinutes())}`;
+      state.next = { key: nextKey, at: nextDate };
+      updateCountdown();
+    }
+
+    function updateCountdown(){
+      if(!state?.next?.at) return;
+      const now = new Date();
+      const diff = state.next.at - now;
+      const sign = diff >= 0 ? 1 : -1; // if negative, we'll flip later when new next recalculated
+      const abs = Math.abs(diff);
+      const h = Math.floor(abs / 3600000);
+      const m = Math.floor((abs % 3600000) / 60000);
+      const s = Math.floor((abs % 60000) / 1000);
+      els.countdown.textContent = `${sign < 0 ? 'Lewat ' : ''}${two(h)}:${two(m)}:${two(s)}`;
+      if(diff < -2000){ // passed, recompute next
+        updateNextPrayer();
+      }
+    }
+
+    // Notifications 10 minutes before
+    function requestNotificationPermission(){
+      if(!('Notification' in window)){
+        els.notifStatus.textContent = '🔔 Notifikasi: tidak didukung';
+        return;
+      }
+      Notification.requestPermission().then((perm)=>{
+        if(perm === 'granted'){
+          els.notifStatus.textContent = '🔔 Notifikasi: aktif';
+          scheduleNotifications();
+        }else if(perm === 'denied'){
+          els.notifStatus.textContent = '🔔 Notifikasi: ditolak';
+        }else{
+          els.notifStatus.textContent = '🔔 Notifikasi: meminta izin';
+        }
+      });
+    }
+
+    function clearTimers(){ state.timers.forEach(id=>clearTimeout(id)); state.timers=[]; }
+
+    function scheduleNotifications(){
+      clearTimers();
+      if(!state.timings || !('Notification' in window) || Notification.permission !== 'granted') return;
+      const now = new Date();
+      const labels = {Fajr:'Subuh', Dhuhr:'Dzuhur', Asr:'Ashar', Maghrib:'Maghrib', Isha:'Isya'};
+      PRAYERS_ORDER.forEach(key=>{
+        const at = parseTodayTime(state.timings[key]);
+        const notifyAt = new Date(at.getTime() - 10*60*1000); // 10 minutes before
+        const ms = notifyAt - now;
+        if(ms > 0){
+          const id = setTimeout(()=>{
+            new Notification('🔔 Pengingat Sholat', {
+              body: `${labels[key]} 10 menit lagi (adzan ${state.timings[key]})`,
+              tag: `prayer-${key}-${at.toDateString()}`,
+            });
+          }, ms);
+          state.timers.push(id);
+        }
+      });
+      // reschedule after midnight
+      const midnight = new Date(); midnight.setHours(24,0,5,0);
+      const id = setTimeout(()=>{ fetchTimings(); }, midnight - now);
+      state.timers.push(id);
+    }
+
+    // UI events
+    els.refreshBtn.addEventListener('click', ()=>{ fetchTimings(); });
+    els.allowLocationBtn.addEventListener('click', openLocModal);
+    els.enableNotifBtn.addEventListener('click', requestNotificationPermission);
+    els.grantLoc.addEventListener('click', requestLocation);
+    els.denyLoc.addEventListener('click', closeLocModal);
+
+    // Init clock
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // Auto open location modal on first load (gentle prompt)
+    setTimeout(openLocModal, 500);
+
+    // Try to show existing notification status
+    if('Notification' in window){
+      if(Notification.permission === 'granted') els.notifStatus.textContent = '🔔 Notifikasi: aktif';
+      else if(Notification.permission === 'denied') els.notifStatus.textContent = '🔔 Notifikasi: ditolak';
+    }
+  </script></body>
+</html>
