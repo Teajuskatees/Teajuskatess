@@ -15,7 +15,7 @@
     .container {
       background: #fff; padding: 20px; border-radius: 16px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-      width: 95%; max-width: 650px;
+      width: 95%; max-width: 700px;
       margin-bottom: 60px;
     }
     h2 { text-align: center; margin-bottom: 20px; color: #333; }
@@ -45,18 +45,57 @@
     }
     .footer a { color: inherit; text-decoration: none; font-weight: 600; }
     .footer a:hover { text-decoration: underline; }
+    .filter-box { margin-top: 15px; display: flex; gap: 10px; justify-content: center; }
+
+    /* === Loading Spinner === */
+    #loading {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.9);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 99999;
+      flex-direction: column;
+    }
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 6px solid #ddd;
+      border-top: 6px solid #4facfe;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .loading-text {
+      font-weight: bold;
+      color: #333;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
-  <div class="container" id="loginPage">
-    <h2>🔑 Login</h2>
+  <!-- Loading Screen -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">Memuat aplikasi...</div>
+  </div>
+
+  <!-- Login Page -->
+  <div class="container" id="loginPage" style="display:none;">
+    <h2>🔑 Silahkan Login</h2>
     <form id="loginForm">
       <input type="text" id="username" placeholder="Username" required>
-      <input type="password" id="password" placeholder="Password" required>
+      <input type="password" id="password" placeholder="Password : 1234" required>
       <button type="submit">Login</button>
     </form>
   </div>
 
+  <!-- App Page -->
   <div class="container" id="appPage" style="display:none;">
     <h2>💰 Catatan Keuangan</h2>
     <form id="form">
@@ -74,6 +113,11 @@
       </select>
       <button type="submit">Tambah</button>
     </form>
+
+    <div class="filter-box">
+      <input type="date" id="filterTanggal">
+      <button onclick="lihatHari()">Lihat Hari</button>
+    </div>
 
     <table>
       <thead>
@@ -116,18 +160,41 @@
     const loginForm = document.getElementById("loginForm");
     const logoutBtn = document.getElementById("logout");
 
+    function showLogin() {
+      loginPage.style.display = "block";
+      appPage.style.display = "none";
+    }
+    function showApp() {
+      loginPage.style.display = "none";
+      appPage.style.display = "block";
+      updateUI();
+    }
+
+    // Loading screen → tentukan halaman tujuan
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        document.getElementById("loading").style.display = "none";
+        if(localStorage.getItem("loggedIn") === "true") {
+          showApp();
+        } else {
+          showLogin();
+        }
+      }, 1000);
+    });
+
+    // Login
     loginForm.addEventListener("submit", e => {
       e.preventDefault();
       localStorage.setItem("loggedIn", "true");
       showApp();
     });
+    // Logout
     logoutBtn.addEventListener("click", () => {
       localStorage.removeItem("loggedIn");
       location.reload();
     });
-    function showApp() { loginPage.style.display = "none"; appPage.style.display = "block"; }
-    if(localStorage.getItem("loggedIn") === "true") showApp();
 
+    // ==================== Data Keuangan ====================
     const form = document.getElementById("form");
     const deskripsi = document.getElementById("deskripsi");
     const jumlah = document.getElementById("jumlah");
@@ -143,7 +210,16 @@
     const rekapPengeluaranBank = document.getElementById("rekap-pengeluaran-bank");
     const ctx = document.getElementById("grafik").getContext("2d");
 
-    let transaksi = JSON.parse(localStorage.getItem("transaksi")) || [];
+    function getToday() { return new Date().toISOString().split("T")[0]; }
+    function getKeyTanggal(tgl) { return "transaksi_" + tgl; }
+    function loadTransaksi(tgl) { return JSON.parse(localStorage.getItem(getKeyTanggal(tgl))) || []; }
+    function saveTransaksi(tgl, data) { localStorage.setItem(getKeyTanggal(tgl), JSON.stringify(data)); }
+
+    let hariIni = getToday();
+    let transaksi = loadTransaksi(hariIni);
+
+    tanggal.value = hariIni;
+    document.getElementById("filterTanggal").value = hariIni;
 
     form.addEventListener("submit", function(e) {
       e.preventDefault();
@@ -153,41 +229,45 @@
         amount: parseInt(jumlah.value),
         type: tipe.value,
         source: sumber.value,
-        date: new Date(tanggal.value)
+        date: new Date(tanggal.value).toISOString()
       };
       transaksi.push(data);
-      localStorage.setItem("transaksi", JSON.stringify(transaksi));
+      saveTransaksi(hariIni, transaksi);
       updateUI();
       form.reset();
+      tanggal.value = hariIni;
     });
 
     function hapusTransaksi(id) {
       transaksi = transaksi.filter(t => t.id !== id);
-      localStorage.setItem("transaksi", JSON.stringify(transaksi));
+      saveTransaksi(hariIni, transaksi);
       updateUI();
     }
 
-    function updateUI() {
+    function lihatHari() {
+      const tgl = document.getElementById("filterTanggal").value;
+      if(!tgl) return;
+      transaksi = loadTransaksi(tgl);
+      updateUI(tgl);
+    }
+
+    function updateUI(tgl = hariIni) {
       tabelBody.innerHTML = "";
       let cash = 0, bank = 0;
-      const now = new Date();
-      const awalMinggu = new Date(now); awalMinggu.setDate(now.getDate() - now.getDay());
-      const awalBulan = new Date(now.getFullYear(), now.getMonth(), 1);
       let totalMinggu = 0, totalBulan = 0;
       let pengeluaranCash = 0, pengeluaranBank = 0;
 
-      transaksi.forEach(item => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${item.date ? new Date(item.date).toLocaleDateString("id-ID") : ""}</td>
-          <td>${item.desc}</td>
-          <td class="${item.type === "pemasukan" ? "income" : item.type === "pengeluaran" ? "expense" : ""}">Rp ${item.amount.toLocaleString()}</td>
-          <td>${item.type}</td>
-          <td>${item.source}</td>
-          <td><button onclick="hapusTransaksi(${item.id})">Hapus</button></td>
-        `;
-        tabelBody.appendChild(row);
+      let semuaKunci = Object.keys(localStorage).filter(k => k.startsWith("transaksi_"));
+      let semuaTransaksi = [];
+      semuaKunci.forEach(k => {
+        semuaTransaksi = semuaTransaksi.concat(JSON.parse(localStorage.getItem(k)));
+      });
 
+      const now = new Date();
+      const awalMinggu = new Date(now); awalMinggu.setDate(now.getDate() - now.getDay());
+      const awalBulan = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      semuaTransaksi.forEach(item => {
         if(item.type === "pemasukan") {
           if(item.source === "cash") cash += item.amount; else bank += item.amount;
         } else if(item.type === "pengeluaran") {
@@ -207,6 +287,19 @@
         }
       });
 
+      transaksi.forEach(item => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${new Date(item.date).toLocaleDateString("id-ID")}</td>
+          <td>${item.desc}</td>
+          <td class="${item.type === "pemasukan" ? "income" : item.type === "pengeluaran" ? "expense" : ""}">Rp ${item.amount.toLocaleString()}</td>
+          <td>${item.type}</td>
+          <td>${item.source}</td>
+          <td><button onclick="hapusTransaksi(${item.id})">Hapus</button></td>
+        `;
+        tabelBody.appendChild(row);
+      });
+
       saldoCash.textContent = "Saldo Cash: Rp " + cash.toLocaleString();
       saldoBank.textContent = "Saldo Bank: Rp " + bank.toLocaleString();
       rekapMingguan.textContent = "Rekap Mingguan: Rp " + totalMinggu.toLocaleString();
@@ -223,7 +316,6 @@
         }
       });
     }
-    updateUI();
 
     document.getElementById("downloadPDF").addEventListener("click", () => {
       const { jsPDF } = window.jspdf;
@@ -231,7 +323,13 @@
       doc.setFontSize(14);
       doc.text("Laporan Keuangan", 14, 20);
 
-      const body = transaksi.map(t => [
+      let semuaKunci = Object.keys(localStorage).filter(k => k.startsWith("transaksi_"));
+      let semuaTransaksi = [];
+      semuaKunci.forEach(k => {
+        semuaTransaksi = semuaTransaksi.concat(JSON.parse(localStorage.getItem(k)));
+      });
+
+      const body = semuaTransaksi.map(t => [
         new Date(t.date).toLocaleDateString("id-ID"),
         t.desc,
         "Rp " + t.amount.toLocaleString(),
@@ -246,13 +344,12 @@
         theme: "grid",
       });
 
-      // === Hitung Total Rekap ===
       let totalPemasukan = 0, totalPengeluaran = 0;
       let pemasukanCash = 0, pemasukanBank = 0;
       let pengeluaranCash = 0, pengeluaranBank = 0;
       let totalTransfer = 0;
 
-      transaksi.forEach(t => {
+      semuaTransaksi.forEach(t => {
         if(t.type === "pemasukan") {
           totalPemasukan += t.amount;
           if(t.source === "cash") pemasukanCash += t.amount;
@@ -277,7 +374,6 @@
       doc.text(`   - Bank: Rp ${pengeluaranBank.toLocaleString()}`, 30, y); y += 8;
       doc.text(`Total Transfer (Bank → Cash): Rp ${totalTransfer.toLocaleString()}`, 20, y); y += 10;
 
-      // Copyright di bawah
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       doc.setFontSize(9);
@@ -286,5 +382,3 @@
       doc.save("laporan_keuangan.pdf");
     });
   </script>
-</body>
-</html>
