@@ -253,10 +253,17 @@
 
     function updateUI(tgl = hariIni) {
       tabelBody.innerHTML = "";
+
+      // ======= Akumulasi saldo KUMULATIF dari SEMUA hari =======
       let cash = 0, bank = 0;
+
+      // ======= Rekap rolling 7 & 30 hari =======
       let totalMinggu = 0, totalBulan = 0;
+
+      // ======= Total pengeluaran kumulatif =======
       let pengeluaranCash = 0, pengeluaranBank = 0;
 
+      // Ambil semua transaksi (seluruh hari)
       let semuaKunci = Object.keys(localStorage).filter(k => k.startsWith("transaksi_"));
       let semuaTransaksi = [];
       semuaKunci.forEach(k => {
@@ -264,10 +271,11 @@
       });
 
       const now = new Date();
-      const awalMinggu = new Date(now); awalMinggu.setDate(now.getDate() - now.getDay());
-      const awalBulan = new Date(now.getFullYear(), now.getMonth(), 1);
+      const batas7Hari = new Date(now); batas7Hari.setDate(now.getDate() - 6); // 7 hari rolling
+      const batas30Hari = new Date(now); batas30Hari.setDate(now.getDate() - 29); // 30 hari rolling
 
       semuaTransaksi.forEach(item => {
+        // Saldo kumulatif
         if(item.type === "pemasukan") {
           if(item.source === "cash") cash += item.amount; else bank += item.amount;
         } else if(item.type === "pengeluaran") {
@@ -278,15 +286,19 @@
           cash += item.amount;
         }
 
+        // Rekap rolling (excl. transfer)
         const d = new Date(item.date);
-        if(d >= awalMinggu && d <= now && item.type !== "transfer") {
-          totalMinggu += item.type === "pemasukan" ? item.amount : -item.amount;
-        }
-        if(d >= awalBulan && d <= now && item.type !== "transfer") {
-          totalBulan += item.type === "pemasukan" ? item.amount : -item.amount;
+        if(item.type !== "transfer") {
+          if(d >= batas7Hari && d <= now) {
+            totalMinggu += (item.type === "pemasukan" ? item.amount : -item.amount);
+          }
+          if(d >= batas30Hari && d <= now) {
+            totalBulan += (item.type === "pemasukan" ? item.amount : -item.amount);
+          }
         }
       });
 
+      // Render tabel untuk HARI YANG DIPILIH (tidak mengubah saldo kumulatif)
       transaksi.forEach(item => {
         const row = document.createElement("tr");
         row.innerHTML = `
@@ -300,13 +312,15 @@
         tabelBody.appendChild(row);
       });
 
+      // Tampilkan saldo kumulatif & rekap
       saldoCash.textContent = "Saldo Cash: Rp " + cash.toLocaleString();
       saldoBank.textContent = "Saldo Bank: Rp " + bank.toLocaleString();
-      rekapMingguan.textContent = "Rekap Mingguan: Rp " + totalMinggu.toLocaleString();
-      rekapBulanan.textContent = "Rekap Bulanan: Rp " + totalBulan.toLocaleString();
+      rekapMingguan.textContent = "Rekap Mingguan (7 hari): Rp " + totalMinggu.toLocaleString();
+      rekapBulanan.textContent = "Rekap Bulanan (30 hari): Rp " + totalBulan.toLocaleString();
       rekapPengeluaranCash.textContent = "Total Pengeluaran Cash: Rp " + pengeluaranCash.toLocaleString();
       rekapPengeluaranBank.textContent = "Total Pengeluaran Bank: Rp " + pengeluaranBank.toLocaleString();
 
+      // Chart
       if(window.grafikChart) window.grafikChart.destroy();
       window.grafikChart = new Chart(ctx, {
         type: "pie",
@@ -317,19 +331,19 @@
       });
     }
 
+    // ========== Download PDF per HARI (buat file baru tiap tanggal) ==========
     document.getElementById("downloadPDF").addEventListener("click", () => {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
+
+      // Pakai tanggal di filter kalau ada, kalau tidak pakai hari ini
+      const tglDipilih = document.getElementById("filterTanggal").value || getToday();
+      const transaksiHari = loadTransaksi(tglDipilih);
+
       doc.setFontSize(14);
-      doc.text("Laporan Keuangan", 14, 20);
+      doc.text("Laporan Keuangan - " + new Date(tglDipilih).toLocaleDateString("id-ID"), 14, 20);
 
-      let semuaKunci = Object.keys(localStorage).filter(k => k.startsWith("transaksi_"));
-      let semuaTransaksi = [];
-      semuaKunci.forEach(k => {
-        semuaTransaksi = semuaTransaksi.concat(JSON.parse(localStorage.getItem(k)));
-      });
-
-      const body = semuaTransaksi.map(t => [
+      const body = transaksiHari.map(t => [
         new Date(t.date).toLocaleDateString("id-ID"),
         t.desc,
         "Rp " + t.amount.toLocaleString(),
@@ -344,20 +358,19 @@
         theme: "grid",
       });
 
+      // Rekap khusus tanggal tersebut
       let totalPemasukan = 0, totalPengeluaran = 0;
       let pemasukanCash = 0, pemasukanBank = 0;
       let pengeluaranCash = 0, pengeluaranBank = 0;
       let totalTransfer = 0;
 
-      semuaTransaksi.forEach(t => {
+      transaksiHari.forEach(t => {
         if(t.type === "pemasukan") {
           totalPemasukan += t.amount;
-          if(t.source === "cash") pemasukanCash += t.amount;
-          else pemasukanBank += t.amount;
+          if(t.source === "cash") pemasukanCash += t.amount; else pemasukanBank += t.amount;
         } else if(t.type === "pengeluaran") {
           totalPengeluaran += t.amount;
-          if(t.source === "cash") pengeluaranCash += t.amount;
-          else pengeluaranBank += t.amount;
+          if(t.source === "cash") pengeluaranCash += t.amount; else pengeluaranBank += t.amount;
         } else if(t.type === "transfer") {
           totalTransfer += t.amount;
         }
@@ -365,7 +378,7 @@
 
       let y = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(12);
-      doc.text("Rekapitulasi:", 14, y); y += 8;
+      doc.text("Rekapitulasi (Harian):", 14, y); y += 8;
       doc.text(`Total Pemasukan: Rp ${totalPemasukan.toLocaleString()}`, 20, y); y += 6;
       doc.text(`   - Cash: Rp ${pemasukanCash.toLocaleString()}`, 30, y); y += 6;
       doc.text(`   - Bank: Rp ${pemasukanBank.toLocaleString()}`, 30, y); y += 8;
@@ -379,6 +392,9 @@
       doc.setFontSize(9);
       doc.text(`© ${new Date().getFullYear()} teajuskatess.id`, pageWidth / 2, pageHeight - 8, { align: "center" });
 
-      doc.save("laporan_keuangan.pdf");
+      // Nama file per-hari
+      doc.save(`laporan_keuangan_${tglDipilih}.pdf`);
     });
   </script>
+</body>
+  </html>
