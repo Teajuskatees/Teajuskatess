@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Gallery Two</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&display=swap');
+      *{ box-sizing: border-box; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; scroll-behavior: smooth;}
+      html, body { height: 100%; overflow: hidden;}
+      body {
+          display: flex; flex-direction: row; flex-wrap: wrap;
+          justify-content: center; align-items: center; margin: 0;
+          --theme-clr: #fff;
+          font-family: "Mona Sans", sans-serif;
+          background: var(--theme-clr);
+      }
+      /* ///////////////////// */
+      .inf-grid-hero-container {
+        height: 100vh;
+        width: 100vw;
+        perspective: 1000px;
+        position: relative;
+        --sz: 1800px;
+        --grid-sz: 0;
+        --rev-dis: 0;
+      }
+      .inf-grid-hero-container > div {
+        position: absolute;
+        width: 100%; height: 100%;
+        transform-style: preserve-3d;
+        display: grid; place-items: center;
+        z-index: 1;
+
+        display: grid;
+        grid-template-columns: repeat(var(--grid-sz), 1fr);
+        grid-template-rows: repeat(var(--grid-sz), 1fr);
+        gap: 6px;
+      }
+      .inf-grid-hero-container > div::after {
+        content: ''; display: block;
+        height: 100%;
+        background: var(--theme-clr);
+        position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+        pointer-events: none;
+        z-index: 3;
+      }
+      .inf-grid-hero-container > div > div {
+        width: 100%; height: 100%;
+        background-size: cover !important;
+        background-position: center !important;
+        background: repeating-linear-gradient(45deg, #94a4c211 0%, #94a4c211 5%, transparent 5%, transparent 10%);
+        opacity: 0;
+      }
+      .inf-grid-hero-container > div > div:hover {
+        border: 4px solid #fff;
+        cursor: pointer;
+      }
+      .inf-grid-hero-container > div > div.loaded {
+        transition: transform 0.4s ease-out, opacity 0.4s ease-out;
+        transform-style: preserve-3d;
+        opacity: 1;
+        z-index: 2;
+        transform: translate3d( 0, 0, -1px) !important;
+      }
+
+      .inf-grid-hero-container > div.top {
+        top: 0;
+        transform-origin: top center;
+        transform: rotateX(-90deg);
+        height: var(--sz);
+        perspective: 1000px;
+      }
+      .inf-grid-hero-container > div.top::after { background: linear-gradient( 180deg, transparent, var(--theme-clr) calc(1% * (100 - var(--rev-dis)))); }
+      .inf-grid-hero-container > div.top .shift-away { translate: 0% 100%;}
+      .inf-grid-hero-container > div.top > div { transform: translate3d( 0, 0, -100vh); }
+
+      .inf-grid-hero-container > div.left {
+        left: 0; transform-origin: center left;
+        transform: rotateY(90deg); width: var(--sz);
+      }
+      .inf-grid-hero-container > div.left::after { background: linear-gradient( 90deg, transparent, var(--theme-clr) calc(1% * (100 - var(--rev-dis)))); }
+      .inf-grid-hero-container > div.left .shift-away { translate: 100% 0%;}
+      .inf-grid-hero-container > div.left > div { transform: translate3d( 0, 0, -50vw); }
+
+      .inf-grid-hero-container > div.bottom {
+        bottom: 0; transform-origin: bottom center;
+        transform: rotateX(90deg); height: var(--sz);
+      }
+      .inf-grid-hero-container > div.bottom::after { background: linear-gradient( 0deg, transparent, var(--theme-clr) calc(1% * (100 - var(--rev-dis)))); }
+      .inf-grid-hero-container > div.bottom .shift-away { translate: 0% -100%;}
+      .inf-grid-hero-container > div.bottom > div { transform: translate3d( 0, 0, -50vh); }
+
+      .inf-grid-hero-container > div.right {
+        right: 0; transform-origin: center right;
+        transform: rotateY(-90deg); width: var(--sz);
+      }
+      .inf-grid-hero-container > div.right::after { background: linear-gradient( 270deg, transparent, var(--theme-clr) calc(1% * (100 - var(--rev-dis)))); }
+      .inf-grid-hero-container > div.right .shift-away { translate: -100% 0%;}
+      .inf-grid-hero-container > div.right > div { transform: translate3d( 0, 0, -50vw); }
+
+      .content {
+        position: absolute;
+        width: 34%; height: 34%;
+        left: 0; right: 0; top: 0; bottom: 0;
+        border-radius: 8px;
+        backdrop-filter: blur(3px);
+        margin: auto;
+        justify-content: center;
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        z-index: 5;
+      }
+      .content h2 {
+        font-size: 3em;
+        font-weight: 600;
+        z-index: 1;
+        color:#000;
+        user-select: none;
+        margin:0;
+      }
+      .content p {
+        margin-top: 0;
+        color: #333;
+        font-weight: 500;
+        text-align: center;
+      }
+      .content span { color: orangered; }
+      .content a.button {
+        background: #1e1e1e; padding: 6px 42px 8px 42px;
+        border-radius: 12px; color: #fff;
+        text-decoration: none; cursor: pointer;
+        transition: box-shadow 0.2s ease-in-out;
+      }
+      .content a.button:hover {
+        box-shadow: inset 0 0 8px 1px #fff,
+        inset 0 0 0 1px #fff;
+      }
+
+      body:has(div.selectedPane) div.content  {
+        transition: opacity 0.4s ease-in-out;
+        opacity: 0;
+        z-index: -1;
+      }
+      .inf-grid-hero-container > div.selectedPane {
+        transform: rotateX(0deg);
+        width: 100vw; height: 100vh;
+        z-index: 100;
+        transition: all 1s ease-in-out;
+        position: absolute;
+      }
+      .inf-grid-hero-container > div.selectedPane::after { background: none; }
+      .inf-grid-hero-container > div.selectedPane.top > div.selected{ top: 0; }
+      .inf-grid-hero-container > div.selectedPane.left > div.selected{ left: 0; }
+      .inf-grid-hero-container > div.selectedPane.right > div.selected{ right: 0; }
+      .inf-grid-hero-container > div.selectedPane.bottom > div.selected{ bottom: 0; }
+
+      .inf-grid-hero-container > div.selectedPane > div { opacity: 0; }
+      .inf-grid-hero-container > div.selectedPane > div.selected {
+        transition: all 1s ease-in-out;
+        rotate: 90deg 90deg;
+        transform: translate3d(0, 100px, 0);
+
+        position: absolute;
+        z-index: 100;
+        opacity: 0;
+        animation: fadeIn 1s forwards;
+        width: 100%; height: 100%;
+        background-repeat: no-repeat !important;
+        cursor: default;
+      }
+      .inf-grid-hero-container > div.selectedPane > div.selected:hover { border: none; }
+
+      @keyframes fadeIn { to { opacity: 1; }}
+
+      div#back-btn {
+        position: absolute;
+        left: 1em; top: 1em;
+        border: 1px solid #aaa;
+        z-index: 101;
+        background: #1e1e1e; padding: 6px 42px 8px 42px;
+        border-radius: 12px; color: #fff;
+        text-decoration: none; cursor: pointer;
+        transition: box-shadow 0.2s ease-in-out;
+        opacity: 0;
+        pointer-events: none;
+      }
+      div#back-btn:hover {
+        box-shadow: inset 0 0 8px 1px #fff,
+        inset 0 0 0 1px #fff;
+      }
+      body:has(div.selectedPane) div#back-btn {
+        opacity: 1;
+        pointer-events: all;
+      }
+      body:has(div.selectedPane) div.tp-dfwv {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="back-btn">Back to Gallery</div>
+    <div class="content">
+      <h2>Shellin<span>♡</span></h2>
+      <p>Happy<span>Birthady</span>My Pretty</p>
+      <a href="https://teajuskatees.github.io/Teajuskatess/love%20animation.html" class="button">Klik</a>
+    </div>
+    <section class="inf-grid-hero-container">
+      <div class="right"></div>
+      <div class="bottom"></div>
+      <div class="left"></div>
+      <div class="top"></div>
+    </section>
+    
+    <script type="module">
+      import {Pane} from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.5/dist/tweakpane.min.js';
+
+      let density = 5;
+      let distance = 0;
+      let speed = 200;
+      const directions = ['top', 'right', 'bottom', 'left'];
+      let isPaused = false;
+      const images = [
+        "https://i.postimg.cc/wjZk1LPb/IMG-20250824-WA0004.jpg",
+        "https://i.postimg.cc/tgGx058y/IMG-20250814-WA0000.jpg",
+        "https://i.postimg.cc/XvKyn505/f04ef909e8111509fa96e977c75a3adc.jpg",
+        "https://i.postimg.cc/XvKyn505/f04ef909e8111509fa96e977c75a3adc.jpg",
+        "https://i.postimg.cc/wjZk1LPb/IMG-20250824-WA0004.jpg",
+        "https://i.postimg.cc/tgGx058y/IMG-20250814-WA0000.jpg"
+      ];
+
+      function preloadImages(srcArray, callback) {
+        let loaded = 0;
+        srcArray.forEach(src => {
+          const img = new Image();
+          img.onload = () => {
+            loaded++;
+            if (loaded === srcArray.length) callback();
+          };
+          img.src = src;
+        });
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        preloadImages(images, () => { renderWalls(); });
+      });
+
+      const allGridElements = [];
+      let intervalId;
+
+      function renderWalls() {
+        const gridContainer = document.querySelector('.inf-grid-hero-container');
+        gridContainer.style.setProperty('--grid-sz', density);
+        gridContainer.style.setProperty('--rev-dis', distance);
+
+        allGridElements.length = 0;
+
+        directions.forEach(dir => {
+          const parent = document.querySelector(`.${dir}`);
+          if (!parent) return;
+          parent.innerHTML = '';
+          const total = density * density;
+          for (let i = 1; i <= total; i++) {
+            const div = document.createElement('div');
+            div.classList.add(`${dir.charAt(0)}${i}`);
+            parent.appendChild(div);
+            allGridElements.push(div);
+          }
+        });
+
+        startImageInterval();
+      }
+
+      let loadedCount = 0;
+      let totalElementsToLoad = 0;
+
+      function startImageInterval() {
+        if (intervalId) clearInterval(intervalId);
+        loadedCount = 0;
+        totalElementsToLoad = allGridElements.length;
+
+        intervalId = setInterval(() => {
+          if (isPaused) return;
+          const unloadedElements = allGridElements.filter(el => !el.classList.contains('loaded'));
+          if (unloadedElements.length === 0) return;
+
+          const randomElement = unloadedElements[Math.floor(Math.random() * unloadedElements.length)];
+          const randomImage = images[Math.floor(Math.random() * images.length)];
+          randomElement.style.background = `url('${randomImage}')`;
+          randomElement.classList.add('loaded');
+          loadedCount++;
+
+          randomElement.addEventListener('click', () => {
+            randomElement.classList.add('selected');
+            randomElement.parentNode.classList.add('selectedPane');
+            pauseInterval();
+          });
+
+          if (loadedCount >= totalElementsToLoad) {
+            clearInterval(intervalId);
+            document.dispatchEvent(new Event('allImagesLoaded'));
+          }
+        }, speed);
+      }
+
+      function pauseInterval() {
+        isPaused = true;
+      }
+
+      function resumeInterval() {
+        document.querySelector('.selected')?.classList.remove('selected');
+        document.querySelector('.selectedPane')?.classList.remove('selectedPane');
+        if (!isPaused) return;
+        isPaused = false;
+        startImageInterval();
+      }
+
+      document.getElementById('back-btn').addEventListener('click', resumeInterval);
+
+      document.addEventListener('allImagesLoaded', () => {
+        document.body.classList.add('all-loaded');
+        console.log("All images loaded.");
+      });
+
+      /* js gui */
+      const PARAMS = {
+        size: density,
+        distance: 0,
+        speed: speed,
+      };
+
+      const pane = new Pane();
+      const size = pane.addBinding( PARAMS, 'size', {min: 2, max: 8, step: 1});
+      size.on('change', function(ev) {
+        density = ev.value;
+        renderWalls();
+      });
+      const dis = pane.addBinding( PARAMS, 'distance', {min: 0, max: 100, step: 1} );
+      dis.on('change', function(ev) {
+        distance = ev.value;
+        document.querySelector('.inf-grid-hero-container').style.setProperty('--rev-dis', distance);
+      });
+      const spd = pane.addBinding( PARAMS, 'speed', {min: 50, max: 400, step: 50} );
+      spd.on('change', function(ev) {
+        speed = ev.value;
+        startImageInterval();
+      });
+    </script>
+  </body>
+</html>
