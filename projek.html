@@ -5,42 +5,48 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Daily Planner • Habit • Finance — Teajuskatess.id</title>
 
-  <!-- Tailwind CDN -->
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- jsPDF (for PDF export) -->
+  <!-- jsPDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-  <meta name="theme-color" content="#0ea5e9">
+  <meta name="theme-color" content="#0ea5e9"/>
   <style>
     :root{--bg:#f8fbff;--primary:#0ea5e9;--muted:#6b7280}
     body{background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%)}
     .card{background:white;border-radius:14px;box-shadow:0 6px 18px rgba(2,6,23,0.06)}
     .nav-icon{width:22px;height:22px}
-    .wave {height:8px; border-radius:999px; overflow:hidden; background:rgba(14,165,233,0.12);}
-    .wave>i{display:block; height:100%; width:30%; transform:translateX(-100%); background:linear-gradient(90deg, rgba(14,165,233,0), rgba(14,165,233,0.9), rgba(14,165,233,0)); animation:slide 1.6s linear infinite;}
+    .wave {height:8px;border-radius:999px;overflow:hidden;background:rgba(14,165,233,0.12)}
+    .wave>i{display:block;height:100%;width:30%;transform:translateX(-100%);background:linear-gradient(90deg, rgba(14,165,233,0), rgba(14,165,233,0.9), rgba(14,165,233,0));animation:slide 1.6s linear infinite}
     @keyframes slide{to{transform:translateX(300%)}}
-    @media(min-width:768px){ .hidden-on-mobile{display:block} }
-    /* popup fade-in */
     @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
     .animate-fade-in { animation: fadeIn 0.22s ease-out; }
+    /* watermark */
+    #watermark { position: fixed; bottom: 10px; right: 12px; font-size: 12px; color: #60a5fa; opacity: 0.72; pointer-events: none; user-select:none; z-index:60; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; letter-spacing:0.2px; transition:opacity .25s }
+    @media (max-width:420px){ #watermark{ right:8px; bottom:8px; font-size:11px } }
 
-    /* Watermark style (floating) */
-    #watermark {
+    /* NAV RESPONSIVE: bottom on small, top on md+ */
+    .app-nav {
       position: fixed;
-      bottom: 10px;
-      right: 12px;
-      font-size: 12px;
-      color: #60a5fa; /* text-blue-400 */
-      opacity: 0.7;
-      pointer-events: none;
-      user-select: none;
-      z-index: 60;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-      letter-spacing: 0.2px;
-      transition: opacity 0.3s ease;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 40;
+      width: min(96%,420px);
+      transition: all .18s ease;
     }
-    @media (max-width: 420px) {
-      #watermark { right: 8px; bottom: 8px; font-size: 11px; }
+    @media (min-width: 768px) {
+      .app-nav { position: static; transform: none; width: 100%; margin: 0 auto; }
+      .app-nav .nav-inner { display:flex; justify-content:flex-start; gap:12px; padding:8px 12px; }
+      .app-nav .nav-btn { flex: none; }
+    }
+
+    /* Active tab indicator (simple) */
+    .tab-active { background: rgba(14,165,233,0.08); border-radius:10px; }
+
+    /* desktop layout tweaks: main content centered with side paddings */
+    @media (min-width: 1024px) {
+      main.container { max-width: 920px; margin: 0 auto; }
     }
   </style>
 </head>
@@ -68,18 +74,12 @@
   </div>
 </section>
 
-<!-- NON-SPINNER LOADING OVERLAY -->
+<!-- LOADING -->
 <div id="loading-overlay" class="fixed inset-0 bg-white/90 z-50 flex items-center justify-center p-6 hidden">
   <div class="w-full max-w-sm text-center">
     <div class="mb-4">
       <div class="h-16 flex items-center justify-center">
-        <!-- simple logo -->
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="2" y="2" width="20" height="20" rx="6" fill="#e6f8ff"/>
-          <path d="M7 13c1.5-3 4-4 7-4" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="9" cy="16" r="1.6" fill="#0ea5e9"/>
-          <circle cx="15" cy="16" r="1.6" fill="#0ea5e9"/>
-        </svg>
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="6" fill="#e6f8ff"/><path d="M7 13c1.5-3 4-4 7-4" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="16" r="1.6" fill="#0ea5e9"/><circle cx="15" cy="16" r="1.6" fill="#0ea5e9"/></svg>
       </div>
       <div class="text-sm text-slate-600">Memuat website...</div>
     </div>
@@ -90,56 +90,56 @@
 <!-- APP -->
 <div id="app" class="min-h-screen hidden">
   <header class="p-4 bg-white border-b sticky top-0 z-40">
-    <div class="flex items-center justify-between max-w-3xl mx-auto">
+    <div class="flex items-center justify-between max-w-4xl mx-auto">
       <div class="flex items-center gap-3">
         <h2 class="text-lg font-semibold text-sky-600">Planner Saya</h2>
-        <div class="text-xs text-gray-400 ml-2 hidden-on-mobile">• Biru-putih • Mobile-first</div>
+        <span class="hidden md:inline text-xs text-gray-400">• Biru-putih • Mobile-first • Responsif</span>
       </div>
       <div class="flex items-center gap-3">
-        <div id="user-greet" class="text-sm text-slate-600 hidden-on-mobile">Halo, User</div>
+        <div id="user-greet" class="text-sm text-slate-600 hidden md:block">Halo, User</div>
         <button id="logout-btn" title="Logout" class="p-2 rounded-lg hover:bg-sky-50">
-          <!-- door exit icon -->
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M15 13h4M19 13v6M19 11V9a2 2 0 0 0-2-2h-3" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 13h4M19 13v6M19 11V9a2 2 0 0 0-2-2h-3" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
     </div>
   </header>
 
-  <main class="p-4 max-w-3xl mx-auto space-y-4 pb-24">
-    <!-- NAVBAR BOTTOM -->
-    <nav class="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-40 w-[min(96%,420px)]">
-      <div class="flex justify-between items-center p-2 card">
-        <button class="menu-btn flex-1 py-2 px-3 rounded-lg text-center" data-tab="daily" data-target="daily">
-          <div class="flex flex-col items-center">
-            <svg class="nav-icon mb-1" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M8 3v4M16 3v4M21 7v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span class="text-xs">Daily</span>
+  <main class="container p-4 max-w-4xl mx-auto space-y-4 pb-28">
+    <!-- NAV (responsive) -->
+    <nav class="app-nav">
+      <div class="card nav-inner p-2 flex justify-between items-center">
+        <button class="nav-btn menu-btn tab-btn tab-active flex-1 py-2 px-3 rounded-lg text-center md:mr-2" data-tab="daily" data-target="daily">
+          <div class="flex flex-col items-center md:flex-row md:gap-2 md:items-center">
+            <svg class="nav-icon mb-1 md:mb-0" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M8 3v4M16 3v4M21 7v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="text-xs md:text-sm">Daily</span>
           </div>
         </button>
 
-        <button class="menu-btn flex-1 py-2 px-3 rounded-lg text-center" data-tab="habit" data-target="habit">
-          <div class="flex flex-col items-center">
-            <svg class="nav-icon mb-1" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span class="text-xs">Habit</span>
+        <button class="nav-btn menu-btn tab-btn flex-1 py-2 px-3 rounded-lg text-center md:mx-1" data-tab="habit" data-target="habit">
+          <div class="flex flex-col items-center md:flex-row md:gap-2 md:items-center">
+            <svg class="nav-icon mb-1 md:mb-0" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="text-xs md:text-sm">Habit</span>
           </div>
         </button>
 
-        <button class="menu-btn flex-1 py-2 px-3 rounded-lg text-center" data-tab="finance" data-target="finance">
-          <div class="flex flex-col items-center">
-            <svg class="nav-icon mb-1" viewBox="0 0 24 24" fill="none"><path d="M21 10v6a2 2 0 0 1-2 2H5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 3v6" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 7H8" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span class="text-xs">Keuangan</span>
+        <button class="nav-btn menu-btn tab-btn flex-1 py-2 px-3 rounded-lg text-center md:ml-2" data-tab="finance" data-target="finance">
+          <div class="flex flex-col items-center md:flex-row md:gap-2 md:items-center">
+            <svg class="nav-icon mb-1 md:mb-0" viewBox="0 0 24 24" fill="none"><path d="M21 10v6a2 2 0 0 1-2 2H5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 3v6" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 7H8" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="text-xs md:text-sm">Keuangan</span>
           </div>
         </button>
       </div>
     </nav>
 
-    <!-- DAILY -->
-    <section id="tab-daily" class="space-y-4 hidden">
+    <!-- Daily -->
+    <section id="tab-daily" class="space-y-4">
       <div class="card p-4">
-        <h3 class="font-semibold text-sky-600">Daily Planner</h3>
-        <p class="text-xs text-gray-400">Tambah tugas harian, tandai selesai, edit, atau hapus.</p>
+        <div class="flex items-start justify-between">
+          <div>
+            <h3 class="font-semibold text-sky-600">Daily Planner</h3>
+            <p class="text-xs text-gray-400">Tambah tugas harian, tandai selesai, edit, atau hapus.</p>
+          </div>
+        </div>
 
         <form id="task-form" class="mt-3 flex gap-2">
           <input id="task-input" placeholder="Tambah tugas baru..." class="flex-1 rounded-lg border px-3 py-2 focus:ring-2 focus:ring-sky-100" />
@@ -155,7 +155,7 @@
       </div>
     </section>
 
-    <!-- HABIT -->
+    <!-- Habit -->
     <section id="tab-habit" class="space-y-4 hidden">
       <div class="card p-4">
         <h3 class="font-semibold text-sky-600">Habit Tracker</h3>
@@ -170,13 +170,12 @@
       </div>
     </section>
 
-    <!-- FINANCE -->
+    <!-- Finance -->
     <section id="tab-finance" class="space-y-4 hidden">
       <div class="card p-4">
         <h3 class="font-semibold text-sky-600">Kelola Keuangan</h3>
         <p class="text-xs text-gray-400">Catat pemasukan, pengeluaran, dan saldo bank.</p>
 
-        <!-- finance form -->
         <form id="finance-form" class="mt-3 grid grid-cols-3 gap-2">
           <input id="f-desc" placeholder="Deskripsi" class="col-span-2 rounded-lg border px-3 py-2" />
           <select id="f-type" class="rounded-lg border px-2 py-2">
@@ -207,17 +206,12 @@
   </main>
 </div>
 
-<!-- LOGOUT CONFIRM -->
+<!-- Logout confirm -->
 <div id="logout-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 hidden">
   <div class="w-[92%] max-w-sm card p-4">
     <div class="flex items-center gap-3">
-      <div class="p-3 rounded-lg bg-sky-50">
-        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none"><path d="M3 21V3h11v18" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 8h4M17 12h4" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="flex-1">
-        <div class="font-semibold">Keluar dari akun?</div>
-        <div class="text-xs text-gray-400">Kamu akan diarahkan ke halaman login.</div>
-      </div>
+      <div class="p-3 rounded-lg bg-sky-50"><svg class="w-7 h-7" viewBox="0 0 24 24" fill="none"><path d="M3 21V3h11v18" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 8h4M17 12h4" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="flex-1"><div class="font-semibold">Keluar dari akun?</div><div class="text-xs text-gray-400">Kamu akan diarahkan ke halaman login.</div></div>
     </div>
     <div class="mt-4 flex justify-end gap-2">
       <button id="logout-cancel" class="px-3 py-2 rounded-lg">Batal</button>
@@ -226,7 +220,7 @@
   </div>
 </div>
 
-<!-- FINANCE INPUT CONFIRMATION POPUP -->
+<!-- Finance confirm -->
 <div id="finance-confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 hidden">
   <div class="w-[92%] max-w-md card p-4">
     <h4 class="font-semibold text-sky-600">Konfirmasi Transaksi</h4>
@@ -243,18 +237,15 @@
   </div>
 </div>
 
-<!-- MONTHLY RECAP PANEL (simple modal) -->
+<!-- Recap modal -->
 <div id="recap-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 hidden">
   <div class="w-[94%] max-w-2xl card p-4 max-h-[80vh] overflow-auto">
-    <div class="flex items-center justify-between">
-      <h4 class="font-semibold text-sky-600">Rekapan Bulanan</h4>
-      <button id="recap-close" class="text-sm text-gray-500">Tutup</button>
-    </div>
+    <div class="flex items-center justify-between"><h4 class="font-semibold text-sky-600">Rekapan Bulanan</h4><button id="recap-close" class="text-sm text-gray-500">Tutup</button></div>
     <div id="recap-content" class="mt-3 text-sm text-gray-700"></div>
   </div>
 </div>
 
-<!-- DAILY NOTIFICATION POPUP (LOCAL) -->
+<!-- Daily notification popup -->
 <div id="dailyAlert" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
   <div class="bg-white rounded-2xl shadow-xl w-80 text-center p-5 animate-fade-in">
     <h2 class="text-xl font-semibold text-sky-600 mb-2">Pengingat Harian</h2>
@@ -266,7 +257,7 @@
   </div>
 </div>
 
-<!-- FLOATING WATERMARK COPYRIGHT -->
+<!-- Watermark -->
 <div id="watermark">© 2025 Teajuskatess.id</div>
 
 <script>
@@ -281,22 +272,20 @@ function escapeHtml(s){ return String(s || '').replace(/[&<>"]/g, c => ({'&':'&a
 function formatNumber(n){ return Number(n).toLocaleString('id-ID'); }
 
 /* ---------------------------
-   Initial app boot
+   Boot
    --------------------------- */
 window.addEventListener('load', () => {
-  // ensure arrays exist
   state.tasks = state.tasks || [];
   state.habits = state.habits || [];
   state.finances = state.finances || [];
   if (state.user) {
-    const l = document.getElementById('loading-overlay');
-    l.classList.remove('hidden');
-    setTimeout(()=>{ l.classList.add('hidden'); openApp(); }, 700);
+    document.getElementById('loading-overlay').classList.remove('hidden');
+    setTimeout(()=>{ document.getElementById('loading-overlay').classList.add('hidden'); openApp(); }, 700);
   }
 });
 
 /* ---------------------------
-   AUTH (demo)
+   Auth
    --------------------------- */
 document.getElementById('login-form').addEventListener('submit', e => {
   e.preventDefault();
@@ -306,30 +295,27 @@ document.getElementById('login-form').addEventListener('submit', e => {
   state.user = { name };
   saveState();
   document.getElementById('login-screen').classList.add('hidden');
-  const l = document.getElementById('loading-overlay');
-  l.classList.remove('hidden');
-  setTimeout(()=>{ l.classList.add('hidden'); openApp(); }, 900);
+  document.getElementById('loading-overlay').classList.remove('hidden');
+  setTimeout(()=>{ document.getElementById('loading-overlay').classList.add('hidden'); openApp(); }, 900);
 });
 
 function openApp(){
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('user-greet').textContent = `Halo, ${state.user?.name || 'User'}`;
   renderAll();
-  // check daily notification once app is open
   checkDailyNotificationIfNeeded();
 }
 
 /* ---------------------------
-   LOGOUT
+   Logout
    --------------------------- */
 document.getElementById('logout-btn').addEventListener('click', ()=> document.getElementById('logout-modal').classList.remove('hidden'));
 document.getElementById('logout-cancel').addEventListener('click', ()=> document.getElementById('logout-modal').classList.add('hidden'));
 document.getElementById('logout-confirm').addEventListener('click', ()=>{
   document.getElementById('logout-modal').classList.add('hidden');
-  const l = document.getElementById('loading-overlay');
-  l.classList.remove('hidden');
+  document.getElementById('loading-overlay').classList.remove('hidden');
   setTimeout(()=>{
-    l.classList.add('hidden');
+    document.getElementById('loading-overlay').classList.add('hidden');
     delete state.user; saveState();
     document.getElementById('app').classList.add('hidden');
     document.getElementById('login-screen').classList.remove('hidden');
@@ -337,18 +323,27 @@ document.getElementById('logout-confirm').addEventListener('click', ()=>{
 });
 
 /* ---------------------------
-   TABS
+   Tabs (sync buttons)
    --------------------------- */
-document.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', ()=> switchTab(btn.dataset.tab)));
-function switchTab(name){
+const tabButtons = document.querySelectorAll('.tab-btn');
+function setActiveTabButton(target) {
+  tabButtons.forEach(b => {
+    if (b.dataset.tab === target) b.classList.add('tab-active'); else b.classList.remove('tab-active');
+  });
+}
+function switchTab(name) {
   document.querySelectorAll('[id^="tab-"]').forEach(s => s.classList.add('hidden'));
   const el = document.getElementById('tab-'+name);
   if (el) el.classList.remove('hidden');
+  setActiveTabButton(name);
+  // scroll top for desktop convenience
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-switchTab('daily'); // default on open
+document.querySelectorAll('.menu-btn').forEach(btn => btn.addEventListener('click', ()=> switchTab(btn.dataset.tab)));
+switchTab('daily');
 
 /* ---------------------------
-   DAILY: add, edit, delete, toggle
+   DAILY
    --------------------------- */
 const taskForm = document.getElementById('task-form');
 const taskInput = document.getElementById('task-input');
@@ -360,7 +355,6 @@ taskForm.addEventListener('submit', e => {
   const txt = taskInput.value.trim();
   const pr = taskPrio.value;
   if (!txt) return;
-  state.tasks = state.tasks || [];
   state.tasks.unshift({ id: Date.now().toString(), text: txt, prio: pr, done: false, created: Date.now() });
   saveState(); taskInput.value = ''; renderTasks();
 });
@@ -416,7 +410,7 @@ taskList.addEventListener('change', e => {
 });
 
 /* ---------------------------
-   HABIT: add, edit, delete
+   HABIT
    --------------------------- */
 const habitForm = document.getElementById('habit-form');
 const habitInput = document.getElementById('habit-input');
@@ -426,7 +420,6 @@ habitForm.addEventListener('submit', e => {
   e.preventDefault();
   const txt = habitInput.value.trim();
   if (!txt) return;
-  state.habits = state.habits || [];
   state.habits.push({ id: Date.now().toString(), text: txt, streak: 0, lastChecked: null });
   saveState(); habitInput.value = ''; renderHabits();
 });
@@ -469,9 +462,8 @@ habitList.addEventListener('click', e => {
 });
 
 /* ---------------------------
-   FINANCE: add (with confirmation popup), edit, delete, balance, monthly recap, PDF
+   FINANCE
    --------------------------- */
-const financeForm = document.getElementById('finance-form');
 const fDesc = document.getElementById('f-desc');
 const fType = document.getElementById('f-type');
 const fAmount = document.getElementById('f-amount');
@@ -485,9 +477,8 @@ const confAmount = document.getElementById('conf-amount');
 const confCancel = document.getElementById('conf-cancel');
 const confSave = document.getElementById('conf-save');
 
-let pendingFinance = null; // store transaction until user confirms
+let pendingFinance = null;
 
-// When user clicks "Tambah" on finance form, show confirmation modal first
 document.getElementById('f-add-btn').addEventListener('click', (e) => {
   e.preventDefault();
   const desc = String(fDesc.value || '').trim();
@@ -495,7 +486,6 @@ document.getElementById('f-add-btn').addEventListener('click', (e) => {
   const amount = Math.round(Number(fAmount.value) || 0);
   if (!desc || !amount) return alert('Lengkapi deskripsi dan jumlah (jumlah > 0).');
 
-  // populate confirmation
   confDesc.textContent = desc;
   confType.textContent = (type === 'bank') ? 'Saldo Bank' : (type === 'income' ? 'Pemasukan' : 'Pengeluaran');
   confAmount.textContent = `Rp ${formatNumber(amount)}`;
@@ -504,26 +494,18 @@ document.getElementById('f-add-btn').addEventListener('click', (e) => {
   financeConfirmModal.classList.remove('hidden');
 });
 
-// Cancel confirmation
-confCancel.addEventListener('click', () => {
-  pendingFinance = null;
-  financeConfirmModal.classList.add('hidden');
-});
+confCancel.addEventListener('click', () => { pendingFinance = null; financeConfirmModal.classList.add('hidden'); });
 
-// Save after confirmation
 confSave.addEventListener('click', () => {
   if (!pendingFinance) { financeConfirmModal.classList.add('hidden'); return; }
-  state.finances = state.finances || [];
   state.finances.unshift(pendingFinance);
   saveState();
   pendingFinance = null;
   financeConfirmModal.classList.add('hidden');
-  // clear form
   fDesc.value = ''; fAmount.value = '';
   renderFinance();
 });
 
-// Render finance list & calculate balance
 function renderFinance(){
   financeList.innerHTML = '';
   const arr = state.finances || [];
@@ -549,7 +531,6 @@ function renderFinance(){
   balanceEl.textContent = 'Rp ' + formatNumber(bal);
 }
 
-// Delete or edit finance
 financeList.addEventListener('click', e => {
   if (e.target.dataset.delf) {
     state.finances = (state.finances || []).filter(x => x.id !== e.target.dataset.delf);
@@ -571,7 +552,7 @@ financeList.addEventListener('click', e => {
 });
 
 /* ---------------------------
-   Monthly recap & PDF export
+   Recap & PDF
    --------------------------- */
 const downloadPdfBtn = document.getElementById('download-pdf');
 const openRecapBtn = document.getElementById('open-recap');
@@ -579,33 +560,21 @@ const recapModal = document.getElementById('recap-modal');
 const recapContent = document.getElementById('recap-content');
 const recapClose = document.getElementById('recap-close');
 
-openRecapBtn.addEventListener('click', () => {
-  renderRecap();
-  recapModal.classList.remove('hidden');
-});
+openRecapBtn.addEventListener('click', () => { renderRecap(); recapModal.classList.remove('hidden'); });
 recapClose.addEventListener('click', () => recapModal.classList.add('hidden'));
 
-function getMonthData(month, year){
-  return (state.finances || []).filter(f => {
-    const d = new Date(f.date);
-    return d.getMonth() === month && d.getFullYear() === year;
-  });
+function getMonthData(month, year) {
+  return (state.finances || []).filter(f => { const d=new Date(f.date); return d.getMonth()===month && d.getFullYear()===year; });
 }
 
 function renderRecap(){
   const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
+  const month = now.getMonth(), year = now.getFullYear();
   const data = getMonthData(month, year);
-  if (!data.length) {
-    recapContent.innerHTML = '<div class="text-xs text-gray-400">Tidak ada transaksi pada bulan ini.</div>'; return;
-  }
-  // group and summarize
-  let income = 0, expense = 0, bank = 0;
+  if (!data.length) { recapContent.innerHTML = '<div class="text-xs text-gray-400">Tidak ada transaksi pada bulan ini.</div>'; return; }
+  let income=0, expense=0, bank=0;
   const rows = data.map(f => {
-    if (f.type === 'income') income += f.amount;
-    else if (f.type === 'expense') expense += f.amount;
-    else if (f.type === 'bank') bank += f.amount;
+    if (f.type==='income') income+=f.amount; else if (f.type==='expense') expense+=f.amount; else if (f.type==='bank') bank+=f.amount;
     return `<div class="p-2 border-b"><div class="font-medium">${escapeHtml(f.desc)} ${f.type==='bank'?'(Bank)':''}</div><div class="text-xs text-gray-500">${new Date(f.date).toLocaleString()}</div><div class="text-sm">${f.type==='expense'?'-':'+'} Rp ${formatNumber(f.amount)}</div></div>`;
   }).join('');
   const saldo = income + bank - expense;
@@ -619,21 +588,17 @@ function renderRecap(){
     <div>${rows}</div>`;
 }
 
-// PDF download using jsPDF
 downloadPdfBtn.addEventListener('click', () => {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   doc.setFontSize(14);
-  const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
+  const now = new Date(), month = now.getMonth(), year = now.getFullYear();
   doc.text(`Rekapan Bulanan - ${now.toLocaleString('id-ID',{month:'long', year:'numeric'})}`, 14, 20);
   doc.setFontSize(10);
   let y = 30;
   const data = getMonthData(month, year);
-  if (!data.length) {
-    doc.text('Tidak ada transaksi pada bulan ini.', 14, y);
-  } else {
+  if (!data.length) { doc.text('Tidak ada transaksi pada bulan ini.', 14, y); }
+  else {
     data.forEach(f => {
       const line = `${new Date(f.date).toLocaleDateString()} - ${f.desc} (${f.type}) - Rp ${formatNumber(f.amount)}`;
       const split = doc.splitTextToSize(line, 180);
@@ -646,62 +611,90 @@ downloadPdfBtn.addEventListener('click', () => {
 });
 
 /* ---------------------------
-   DAILY LOCAL NOTIFICATION (appears once per day after app open if incomplete tasks)
-   - Uses localStorage key lastDailyNotify_{STORAGE_KEY} to avoid cross-data collisions
+   Daily local notification (once per day)
    --------------------------- */
 const dailyAlert = document.getElementById('dailyAlert');
 const lihatTugasBtn = document.getElementById('lihatTugasBtn');
 const abaikanBtn = document.getElementById('abaikanBtn');
-
 function todayString(){ return new Date().toISOString().slice(0,10); }
-
-function hasIncompleteDaily(){
-  const arr = state.tasks || [];
-  // Check any incomplete task in the list
-  return arr.some(t => !t.done);
-}
-
+function hasIncompleteDaily(){ const arr = state.tasks || []; return arr.some(t => !t.done); }
 function checkDailyNotificationIfNeeded(){
   try {
     const key = 'lastDailyNotify_' + STORAGE_KEY;
     const last = localStorage.getItem(key);
     const today = todayString();
     if (hasIncompleteDaily() && last !== today) {
-      // show popup
       dailyAlert.classList.remove('hidden');
       localStorage.setItem(key, today);
     }
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
-
-lihatTugasBtn.addEventListener('click', () => {
-  dailyAlert.classList.add('hidden');
-  // switch to daily tab
-  switchTab('daily');
-});
-
-abaikanBtn.addEventListener('click', () => {
-  dailyAlert.classList.add('hidden');
-});
+lihatTugasBtn.addEventListener('click', () => { dailyAlert.classList.add('hidden'); switchTab('daily'); });
+abaikanBtn.addEventListener('click', () => { dailyAlert.classList.add('hidden'); });
 
 /* ---------------------------
-   Render all sections
+   Render helpers
    --------------------------- */
 function renderAll(){
-  renderTasks();
-  renderHabits();
-  renderFinance();
+  renderTasks(); renderHabits(); renderFinance();
+}
+function renderFinance(){ renderFinance = renderFinanceImpl; renderFinanceImpl(); } // placeholder to avoid lint issue
+function renderFinanceImpl(){
+  // function body already defined above; but ensure invocation works
+  const el = document.getElementById('finance-list');
+  if (!el) return;
+  // reuse earlier implementation by calling actual function body:
+  const arr = state.finances || [];
+  el.innerHTML = '';
+  if (!arr.length) { el.innerHTML = '<div class="text-xs text-gray-400">Belum ada data.</div>'; document.getElementById('balance').textContent='Rp 0'; return; }
+  let bal = 0;
+  arr.forEach(f => {
+    if (f.type === 'income' || f.type === 'bank') bal += f.amount; else bal -= f.amount;
+    const li = document.createElement('li');
+    li.className = 'flex justify-between items-center p-2 border rounded-lg';
+    li.innerHTML = `
+      <div>
+        <div>${escapeHtml(f.desc)} ${f.type === 'bank' ? '(Bank)' : ''}</div>
+        <div class="text-xs text-gray-400">${new Date(f.date).toLocaleString()}</div>
+      </div>
+      <div class="flex gap-2 items-center">
+        <div class="text-sm font-medium">${f.type === 'expense' ? '-' : '+'} Rp ${formatNumber(f.amount)}</div>
+        <button data-editf="${f.id}" class="text-sky-600 text-xs">Edit</button>
+        <button data-delf="${f.id}" class="text-red-500 text-xs">Hapus</button>
+      </div>
+    `;
+    el.appendChild(li);
+  });
+  document.getElementById('balance').textContent = 'Rp ' + formatNumber(bal);
 }
 
-/* ---------------------------
-   On page load: initial render if user already logged in
-   --------------------------- */
-window.onload = () => {
-  // nothing extra here; openApp handles render when logged in
-};
+/* Adjustments: since we declared renderFinanceImpl, ensure financeList events still work */
+financeList && financeList.addEventListener && financeList.addEventListener('click', e => {
+  if (e.target.dataset.delf) {
+    state.finances = (state.finances || []).filter(x => x.id !== e.target.dataset.delf);
+    saveState(); renderFinanceImpl(); return;
+  }
+  if (e.target.dataset.editf) {
+    const f = (state.finances || []).find(x => x.id === e.target.dataset.editf);
+    if (!f) return;
+    const nd = prompt('Edit deskripsi', f.desc);
+    if (nd === null) return;
+    const naRaw = prompt('Edit jumlah (angka)', f.amount);
+    if (naRaw === null) return;
+    const na = Number(naRaw);
+    if (!String(nd).trim() || !na) return alert('Nilai tidak valid');
+    f.desc = String(nd).trim();
+    f.amount = Math.round(na);
+    saveState(); renderFinanceImpl();
+  }
+});
+
+/* On first run, call render functions (if app open) */
+if (state.user) {
+  // render tasks/habits/finance when script loads for logged in session
+  setTimeout(()=>{ renderAll(); }, 50);
+}
 </script>
 
 </body>
-            </html>
+          </html>
